@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#d71920" />
+  <title>Good King</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/logo.jpg" alt="Good King" />
+      <div>
+        <strong>Good King</strong>
+        <span id="cashStatus">Caja cerrada</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="openCashBtn" class="btn yellow">Abrir caja</button>
+      <button id="summaryBtn" class="btn ghost">Resumen</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="catalog">
+      <div class="category-tabs" id="categoryTabs"></div>
+      <div class="product-grid" id="productGrid"></div>
+    </section>
+
+    <aside class="cart-panel">
+      <div class="cart-head">
+        <div>
+          <span>Pedido</span>
+          <strong id="orderNumber">N.º 001</strong>
+        </div>
+        <button id="clearCartBtn" class="icon-btn" title="Vaciar">×</button>
+      </div>
+
+      <div id="cartItems" class="cart-items empty">Aún no hay productos.</div>
+
+      <div class="order-options">
+        <label>Modalidad
+          <select id="orderType">
+            <option value="En el lugar">En el lugar</option>
+            <option value="Para llevar">Para llevar</option>
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Delivery externo">Delivery externo</option>
+          </select>
+        </label>
+        <label>Observación
+          <input id="orderNote" placeholder="Ej.: solo papa, sin arroz" />
+        </label>
+        <label>Método de pago
+          <select id="paymentMethod">
+            <option value="Efectivo">Efectivo</option>
+            <option value="QR">QR</option>
+            <option value="Fiado">Fiado</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="total-row"><span>Total</span><strong id="cartTotal">Bs 0,00</strong></div>
+      <button id="confirmSaleBtn" class="btn primary wide">Confirmar e imprimir</button>
+    </aside>
+  </main>
+
+  <dialog id="cashDialog">
+    <form method="dialog" class="dialog-card" id="cashForm">
+      <h2>Apertura de caja</h2>
+      <p>Confirma el fondo inicial para cambio.</p>
+      <label>Monto inicial (Bs)
+        <input id="openingAmount" type="number" min="0" step="0.01" value="80" required />
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn ghost">Cancelar</button>
+        <button value="default" class="btn primary" id="confirmOpenCash">Abrir caja</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="summaryDialog">
+    <div class="dialog-card wide-dialog">
+      <h2>Resumen del día</h2>
+      <div id="summaryContent"></div>
+      <div class="dialog-actions">
+        <button class="btn ghost" onclick="document.getElementById('summaryDialog').close()">Cerrar</button>
+        <button id="closeCashBtn" class="btn primary">Cerrar caja</button>
+      </div>
+    </div>
+  </dialog>
+
+  <template id="productCardTemplate">
+    <button class="product-card">
+      <div class="product-image"></div>
+      <div class="product-info">
+        <strong></strong>
+        <span></span>
+      </div>
+    </button>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
