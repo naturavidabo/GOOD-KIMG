@@ -2,104 +2,168 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#d71920" />
-  <title>Good King</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#c9101a" />
+  <meta name="description" content="Good King - ventas, caja e inventario" />
+  <title>Good King V0.2</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <img src="assets/logo.jpg" alt="Good King" />
-      <div>
-        <strong>Good King</strong>
-        <span id="cashStatus">Caja cerrada</span>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <button id="menuBtn" class="top-icon" aria-label="Abrir menú">☰</button>
+      <div class="brand">
+        <img src="assets/logo.jpg" alt="Good King" />
+        <div class="brand-copy">
+          <strong>Good King</strong>
+          <span id="cashStatus"><i></i> Caja cerrada</span>
+        </div>
       </div>
-    </div>
-    <div class="top-actions">
-      <button id="openCashBtn" class="btn yellow">Abrir caja</button>
-      <button id="summaryBtn" class="btn ghost">Resumen</button>
-    </div>
-  </header>
+      <button id="openCashBtn" class="cash-pill">Abrir caja</button>
+    </header>
 
-  <main class="layout">
-    <section class="catalog">
-      <div class="category-tabs" id="categoryTabs"></div>
-      <div class="product-grid" id="productGrid"></div>
-    </section>
+    <div class="status-strip">
+      <span id="syncStatus">● Guardado local</span>
+      <span id="clockText"></span>
+    </div>
 
-    <aside class="cart-panel">
+    <main class="page" id="mainPage">
+      <section id="salesView" class="view active">
+        <div class="hero-row">
+          <div>
+            <p class="eyebrow">Punto de venta</p>
+            <h1>¿Qué vamos a preparar?</h1>
+          </div>
+          <button id="todayBtn" class="secondary-action">Resumen de hoy</button>
+        </div>
+
+        <div class="catalog-toolbar">
+          <div id="categoryTabs" class="category-tabs"></div>
+          <label class="search-box">
+            <span>⌕</span>
+            <input id="searchInput" type="search" placeholder="Buscar producto" />
+          </label>
+        </div>
+
+        <div id="productGrid" class="product-grid"></div>
+      </section>
+
+      <section id="moduleView" class="view module-view">
+        <button id="backToSales" class="back-link">← Volver a venta</button>
+        <div id="moduleContent"></div>
+      </section>
+    </main>
+
+    <button id="floatingCart" class="floating-cart" aria-label="Ver pedido">
+      <span class="cart-symbol">🛒</span>
+      <span><b id="floatingCount">0 productos</b><small id="floatingTotal">Bs 0,00</small></span>
+      <i>Ver pedido</i>
+    </button>
+
+    <aside id="cartPanel" class="cart-panel" aria-hidden="true">
+      <div class="cart-grabber"></div>
       <div class="cart-head">
         <div>
-          <span>Pedido</span>
+          <span>Pedido actual</span>
           <strong id="orderNumber">N.º 001</strong>
         </div>
-        <button id="clearCartBtn" class="icon-btn" title="Vaciar">×</button>
+        <button id="closeCartBtn" class="round-close" aria-label="Cerrar pedido">×</button>
       </div>
 
-      <div id="cartItems" class="cart-items empty">Aún no hay productos.</div>
+      <div id="cartItems" class="cart-items"></div>
 
-      <div class="order-options">
-        <label>Modalidad
-          <select id="orderType">
-            <option value="En el lugar">En el lugar</option>
-            <option value="Para llevar">Para llevar</option>
-            <option value="WhatsApp">WhatsApp</option>
-            <option value="Delivery externo">Delivery externo</option>
-          </select>
-        </label>
-        <label>Observación
-          <input id="orderNote" placeholder="Ej.: solo papa, sin arroz" />
-        </label>
-        <label>Método de pago
-          <select id="paymentMethod">
-            <option value="Efectivo">Efectivo</option>
-            <option value="QR">QR</option>
-            <option value="Fiado">Fiado</option>
-          </select>
-        </label>
+      <div class="order-form">
+        <div class="field-group">
+          <span class="field-title">El pedido es</span>
+          <div class="segmented" id="orderTypeGroup">
+            <button class="active" data-value="Para la mesa">Para la mesa</button>
+            <button data-value="Para llevar">Para llevar</button>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <span class="field-title">Indicaciones rápidas</span>
+          <div id="quickNotes" class="quick-notes"></div>
+          <label class="text-note">Otra observación
+            <input id="customNote" placeholder="Escribir indicación adicional" />
+          </label>
+        </div>
+
+        <div class="field-group">
+          <span class="field-title">Forma de pago</span>
+          <div class="segmented" id="paymentGroup">
+            <button class="active" data-value="Efectivo">Efectivo</button>
+            <button data-value="QR">QR</button>
+          </div>
+        </div>
       </div>
 
-      <div class="total-row"><span>Total</span><strong id="cartTotal">Bs 0,00</strong></div>
-      <button id="confirmSaleBtn" class="btn primary wide">Confirmar e imprimir</button>
+      <div class="cart-footer">
+        <div class="total-row"><span>Total</span><strong id="cartTotal">Bs 0,00</strong></div>
+        <button id="confirmSaleBtn" class="primary-action">Confirmar pedido</button>
+      </div>
     </aside>
-  </main>
+    <div id="cartBackdrop" class="backdrop"></div>
 
-  <dialog id="cashDialog">
-    <form method="dialog" class="dialog-card" id="cashForm">
-      <h2>Apertura de caja</h2>
-      <p>Confirma el fondo inicial para cambio.</p>
-      <label>Monto inicial (Bs)
-        <input id="openingAmount" type="number" min="0" step="0.01" value="80" required />
-      </label>
-      <div class="dialog-actions">
-        <button value="cancel" class="btn ghost">Cancelar</button>
-        <button value="default" class="btn primary" id="confirmOpenCash">Abrir caja</button>
-      </div>
-    </form>
-  </dialog>
+    <nav class="bottom-nav">
+      <button class="active" data-module="sales"><span>⌂</span>Venta</button>
+      <button data-module="orders"><span>▤</span>Pedidos</button>
+      <button data-module="market"><span>✓</span>Mercado</button>
+      <button data-module="cash"><span>▣</span>Caja</button>
+      <button data-module="more"><span>•••</span>Más</button>
+    </nav>
 
-  <dialog id="summaryDialog">
-    <div class="dialog-card wide-dialog">
-      <h2>Resumen del día</h2>
-      <div id="summaryContent"></div>
-      <div class="dialog-actions">
-        <button class="btn ghost" onclick="document.getElementById('summaryDialog').close()">Cerrar</button>
-        <button id="closeCashBtn" class="btn primary">Cerrar caja</button>
+    <aside id="sideMenu" class="side-menu">
+      <div class="side-header">
+        <img src="assets/logo.jpg" alt="Good King" />
+        <div><strong>Good King</strong><span>Panel administrativo</span></div>
+        <button id="closeMenuBtn">×</button>
       </div>
-    </div>
-  </dialog>
+      <div id="sideLinks" class="side-links"></div>
+      <div class="side-footer"><span>V0.2 · Base local IndexedDB</span></div>
+    </aside>
+    <div id="menuBackdrop" class="backdrop"></div>
 
-  <template id="productCardTemplate">
-    <button class="product-card">
-      <div class="product-image"></div>
-      <div class="product-info">
-        <strong></strong>
-        <span></span>
+    <dialog id="cashDialog">
+      <form method="dialog" class="dialog-card" id="cashForm">
+        <div class="dialog-icon">💵</div>
+        <h2>Apertura de caja</h2>
+        <p>Confirma el fondo disponible para dar cambio.</p>
+        <label>Monto inicial (Bs)
+          <input id="openingAmount" type="number" min="0" step="0.01" value="80" required />
+        </label>
+        <div class="dialog-actions">
+          <button value="cancel" class="button-light">Cancelar</button>
+          <button value="default" id="confirmOpenCash" class="primary-action">Abrir caja</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="summaryDialog">
+      <div class="dialog-card summary-card">
+        <div class="dialog-title-row"><div><p class="eyebrow">Jornada actual</p><h2>Resumen del día</h2></div><button onclick="summaryDialog.close()">×</button></div>
+        <div id="summaryContent"></div>
+        <div class="dialog-actions">
+          <button class="button-light" onclick="summaryDialog.close()">Cerrar</button>
+          <button id="closeCashBtn" class="primary-action">Cerrar caja</button>
+        </div>
       </div>
-    </button>
-  </template>
+    </dialog>
+
+    <dialog id="printDialog">
+      <div class="print-preview">
+        <div class="dialog-title-row"><h2>Pedido registrado</h2><button onclick="printDialog.close()">×</button></div>
+        <div id="printContent"></div>
+        <div class="dialog-actions">
+          <button class="button-light" onclick="printDialog.close()">Listo</button>
+          <button id="printBtn" class="primary-action">Imprimir</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast"></div>
+  </div>
 
   <script src="app.js"></script>
 </body>

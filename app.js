@@ -1,137 +1,70 @@
-const products = [
-  {id:'hamb-simple',name:'Hamburguesa simple',price:15,cat:'Hamburguesas',icon:'🍔'},
-  {id:'hamb-doble',name:'Hamburguesa doble',price:22,cat:'Hamburguesas',icon:'🍔'},
-  {id:'broaster-eco',name:'Broaster económico',price:18,cat:'Broaster',icon:'🍗'},
-  {id:'cuarto-pierna',name:'Cuarto: pierna y contra',price:26,cat:'Broaster',icon:'🍗'},
-  {id:'cuarto-mixto',name:'Cuarto mixto',price:27,cat:'Broaster',icon:'🍗'},
-  {id:'cuarto-pecho',name:'Cuarto: pecho y ala',price:28,cat:'Broaster',icon:'🍗'},
-  {id:'salchipapa',name:'Salchipapa',price:15,cat:'Platos',icon:'🍟'},
-  {id:'salchicarne',name:'Salchicarne',price:20,cat:'Platos',icon:'🥩'},
-  {id:'lomo',name:'Lomo montado',price:25,cat:'Platos',icon:'🍳'},
-  {id:'coca-mini',name:'Coca-Cola mini',price:4,cat:'Bebidas',icon:'🥤'},
-  {id:'coca-pop',name:'Coca-Cola popular',price:7,cat:'Bebidas',icon:'🥤'},
-  {id:'coca-2l',name:'Coca-Cola 2 L',price:14,cat:'Bebidas',icon:'🥤'},
-  {id:'limonada',name:'Limonada',price:7,cat:'Bebidas',icon:'🍋'},
-  {id:'extra-arroz',name:'Porción de arroz',price:4,cat:'Extras',icon:'🍚'},
-  {id:'extra-papa',name:'Porción de papa',price:6,cat:'Extras',icon:'🍟'},
-  {id:'extra-salchicha',name:'Porción de salchicha',price:5,cat:'Extras',icon:'🌭'},
-  {id:'extra-ensalada',name:'Porción de ensalada',price:4,cat:'Extras',icon:'🥗'},
-  {id:'extra-huevo',name:'Huevo adicional',price:3,cat:'Extras',icon:'🍳'}
+'use strict';
+const DB_NAME='goodKingDB'; const DB_VERSION=1;
+const money=n=>`Bs ${Number(n||0).toFixed(2).replace('.',',')}`;
+const todayKey=()=>new Date().toISOString().slice(0,10);
+const uid=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const products=[
+{id:'hamb-simple',category:'Menú',name:'Hamburguesa simple',price:18,emoji:'🍔',desc:'Carne, mozzarella, ensalada y papas',badge:'Más pedida'},
+{id:'hamb-double',category:'Menú',name:'Hamburguesa doble',price:25,emoji:'🍔',desc:'Doble carne, doble mozzarella y papas',badge:'Doble'},
+{id:'broaster-eco',category:'Menú',name:'Broaster económico',price:18,emoji:'🍗',desc:'Una presa, arroz y papas',badge:'1 presa'},
+{id:'cuarto-pierna',category:'Menú',name:'Cuarto pierna y contra',price:26,emoji:'🍗',desc:'Dos presas, arroz y papas',badge:'Bs 26'},
+{id:'cuarto-mixto',category:'Menú',name:'Cuarto mixto',price:27,emoji:'🍗',desc:'Combinación mixta, arroz y papas',badge:'Bs 27'},
+{id:'cuarto-pecho',category:'Menú',name:'Cuarto pecho y ala',price:28,emoji:'🍗',desc:'Pecho y ala, arroz y papas',badge:'Bs 28'},
+{id:'salchipapa',category:'Menú',name:'Salchipapa',price:15,emoji:'🍟',desc:'Porción grande de papas y salchicha',badge:'Clásica'},
+{id:'salchicarne',category:'Menú',name:'Salchicarne',price:22,emoji:'🥩',desc:'Papas, salchicha y carne picada',badge:'Completa'},
+{id:'lomo',category:'Menú',name:'Lomo montado',price:28,emoji:'🥩',desc:'Bife, huevo, arroz, papa y ensalada',badge:'Especial'},
+{id:'coca-mini',category:'Bebidas',name:'Coca-Cola mini',price:3,emoji:'🥤',desc:'Presentación mini',badge:'Mini'},
+{id:'coca-pop',category:'Bebidas',name:'Coca-Cola popular',price:5,emoji:'🥤',desc:'Presentación popular',badge:'Popular'},
+{id:'coca-2l',category:'Bebidas',name:'Coca-Cola 2 litros',price:14,emoji:'🍾',desc:'Botella de 2 litros',badge:'2 L'},
+{id:'coca-3l',category:'Bebidas',name:'Coca-Cola 3 litros',price:18,emoji:'🍾',desc:'Botella de 3 litros',badge:'3 L'},
+{id:'jugo',category:'Bebidas',name:'Jugo embotellado',price:6,emoji:'🧃',desc:'Sabor según disponibilidad',badge:'Frío'},
+{id:'limonada',category:'Bebidas',name:'Limonada',price:7,emoji:'🍋',desc:'Preparación de la casa',badge:'Casa'},
+{id:'extra-arroz',category:'Extras',name:'Porción de arroz',price:5,emoji:'🍚',desc:'Porción adicional',badge:'Extra'},
+{id:'extra-papa',category:'Extras',name:'Porción de papa',price:7,emoji:'🍟',desc:'Porción adicional',badge:'Extra'},
+{id:'extra-salchi',category:'Extras',name:'Porción de salchicha',price:6,emoji:'🌭',desc:'Porción adicional',badge:'Extra'},
+{id:'extra-ensalada',category:'Extras',name:'Porción de ensalada',price:5,emoji:'🥗',desc:'Porción adicional',badge:'Extra'},
+{id:'extra-huevo',category:'Extras',name:'Huevo adicional',price:3,emoji:'🍳',desc:'Una unidad',badge:'Extra'}
 ];
+const quickNotes=['Solo papa','Solo arroz','Papa y arroz','Sin arroz','Sin papa','Sin ensalada','Salsas aparte','Sin picante','Presa específica'];
+const modules=[
+['orders','▤','Pedidos','Consulta, correcciones, anulaciones e impresión.'],['cash','▣','Caja','Apertura, cierre, movimientos y fondo del día siguiente.'],['clients','👤','Clientes y fiados','Clientes autorizados, saldos y abonos.'],['products','🍔','Productos','Platos, bebidas, extras, fotos y precios.'],['recipes','◫','Recetas y costos','Ingredientes, porciones y costo estimado.'],['inventory','▦','Inventario','Stock referencial, alertas, ajustes y mermas.'],['market','✓','Lista de mercado','Ayuda memoria y sugerencias de faltantes.'],['purchases','🛍','Compras','Ingreso de compras y actualización de stock.'],['expenses','↘','Gastos','Servicios, sueldos, gas, transporte y otros.'],['reports','▥','Reportes','Resumen diario, mensual y documentos imprimibles.'],['users','♙','Usuarios','Administrador, propietaria y ayudante.'],['settings','⚙','Configuración','Negocio, impresión, unidades y futura sincronización.']
+];
+let db; let cart=[]; let currentCategory='Menú'; let orderType='Para la mesa'; let payment='Efectivo'; let selectedNotes=new Set(); let currentCash=null;
 
-let cart = [];
-let activeCategory = 'Todos';
-const $ = s => document.querySelector(s);
-const money = n => `Bs ${Number(n).toFixed(2).replace('.',',')}`;
-const todayKey = () => new Date().toISOString().slice(0,10);
+const $=id=>document.getElementById(id);
+function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;['settings','cashSessions','sales','movements','syncQueue'].forEach(s=>{if(!d.objectStoreNames.contains(s))d.createObjectStore(s,{keyPath:'id'})})};r.onsuccess=()=>{db=r.result;resolve(db)};r.onerror=()=>reject(r.error)})}
+function storePut(store,value){return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);tx.oncomplete=()=>resolve(value);tx.onerror=()=>reject(tx.error)})}
+function storeAll(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+function storeGet(store,id){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).get(id);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
 
-function getState(){
-  return JSON.parse(localStorage.getItem('goodKingState') || '{}');
-}
-function saveState(state){localStorage.setItem('goodKingState',JSON.stringify(state));}
-function currentOrderNumber(){
-  const state=getState();
-  const day=state.day===todayKey()?state:{...state,day:todayKey(),orderSeq:0,sales:[]};
-  if(state.day!==todayKey()) saveState(day);
-  return (day.orderSeq||0)+1;
-}
-function renderOrderNumber(){ $('#orderNumber').textContent=`N.º ${String(currentOrderNumber()).padStart(3,'0')}`; }
-
-function renderCategories(){
-  const cats=['Todos',...new Set(products.map(p=>p.cat))];
-  $('#categoryTabs').innerHTML='';
-  cats.forEach(cat=>{
-    const b=document.createElement('button');b.textContent=cat;b.className=cat===activeCategory?'active':'';
-    b.onclick=()=>{activeCategory=cat;renderCategories();renderProducts();};
-    $('#categoryTabs').appendChild(b);
-  });
-}
-function renderProducts(){
-  const grid=$('#productGrid');grid.innerHTML='';
-  products.filter(p=>activeCategory==='Todos'||p.cat===activeCategory).forEach(p=>{
-    const node=$('#productCardTemplate').content.cloneNode(true);
-    node.querySelector('.product-image').textContent=p.icon;
-    node.querySelector('strong').textContent=p.name;
-    node.querySelector('span').textContent=money(p.price);
-    node.querySelector('button').onclick=()=>addProduct(p);
-    grid.appendChild(node);
-  });
-}
-function addProduct(p){
-  const found=cart.find(x=>x.id===p.id); if(found) found.qty++; else cart.push({...p,qty:1}); renderCart();
-}
-function updateQty(id,delta){
-  const item=cart.find(x=>x.id===id); if(!item)return; item.qty+=delta; if(item.qty<=0)cart=cart.filter(x=>x.id!==id); renderCart();
-}
-function renderCart(){
-  const wrap=$('#cartItems');wrap.innerHTML='';
-  if(!cart.length){wrap.className='cart-items empty';wrap.textContent='Aún no hay productos.';} else {
-    wrap.className='cart-items';
-    cart.forEach(i=>{
-      const row=document.createElement('div');row.className='cart-item';
-      row.innerHTML=`<div><strong>${i.name}</strong><small>${money(i.price)} c/u</small></div><div class="qty"><button>−</button><strong>${i.qty}</strong><button>+</button></div>`;
-      const [minus,plus]=row.querySelectorAll('button');minus.onclick=()=>updateQty(i.id,-1);plus.onclick=()=>updateQty(i.id,1);wrap.appendChild(row);
-    });
-  }
-  $('#cartTotal').textContent=money(cart.reduce((s,i)=>s+i.price*i.qty,0));
-}
-function openCash(){
-  const state=getState();
-  if(state.cashOpen&&state.day===todayKey()) return alert('La caja ya está abierta.');
-  $('#openingAmount').value=state.nextOpeningAmount ?? 80;
-  $('#cashDialog').showModal();
-}
-function confirmCashOpen(e){
-  e.preventDefault(); const amount=Number($('#openingAmount').value||0); const state=getState();
-  saveState({...state,day:todayKey(),cashOpen:true,openingAmount:amount,openedAt:new Date().toISOString(),orderSeq:state.day===todayKey()?(state.orderSeq||0):0,sales:state.day===todayKey()?(state.sales||[]):[]});
-  $('#cashDialog').close(); refreshCashStatus();
-}
-function refreshCashStatus(){
-  const s=getState(); const open=s.cashOpen&&s.day===todayKey();
-  $('#cashStatus').textContent=open?`Caja abierta · Fondo ${money(s.openingAmount||0)}`:'Caja cerrada';
-  $('#openCashBtn').textContent=open?'Caja abierta':'Abrir caja';
-  renderOrderNumber();
-}
-function confirmSale(){
-  const s=getState(); if(!(s.cashOpen&&s.day===todayKey())) return alert('Primero debes abrir la caja.');
-  if(!cart.length) return alert('Agrega al menos un producto.');
-  const payment=$('#paymentMethod').value;
-  if(payment==='QR'&&!confirm('¿El pago por QR fue verificado?')) return;
-  if(payment==='Fiado'&&!confirm('La venta quedará registrada como fiada. ¿Continuar?')) return;
-  const total=cart.reduce((sum,i)=>sum+i.price*i.qty,0);
-  const orderNo=(s.orderSeq||0)+1;
-  const sale={id:`${todayKey()}-${orderNo}-${Date.now()}`,orderNo,date:new Date().toISOString(),items:cart.map(x=>({...x})),total,payment,type:$('#orderType').value,note:$('#orderNote').value,status:'confirmada'};
-  const next={...s,orderSeq:orderNo,sales:[...(s.sales||[]),sale]}; saveState(next);
-  printTickets(sale);
-  cart=[]; $('#orderNote').value=''; renderCart(); renderOrderNumber();
-}
-function printTickets(sale){
-  const lines=sale.items.map(i=>`${i.qty} x ${i.name}`).join('<br>');
-  const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:monospace;width:72mm;margin:0;padding:4mm}h2,p{margin:4px 0}.center{text-align:center}.big{font-size:24px;font-weight:bold}.cut{border-top:1px dashed #000;margin:14px 0;padding-top:10px}@media print{button{display:none}}</style></head><body>
-  <div class="center"><img src="assets/logo.jpg" style="width:35mm"><h2>COMANDA</h2><div class="big">PEDIDO ${String(sale.orderNo).padStart(3,'0')}</div><p>${sale.type}</p></div><p>${lines}</p>${sale.note?`<p><b>Obs.:</b> ${sale.note}</p>`:''}
-  <div class="cut center"><img src="assets/logo.jpg" style="width:28mm"><h2>GOOD KING</h2><div class="big">N.º ${String(sale.orderNo).padStart(3,'0')}</div><p><b>${money(sale.total)}</b></p></div>
-  <script>window.onload=()=>window.print()<\/script></body></html>`;
-  const w=window.open('','_blank','width=420,height=700'); w.document.write(html); w.document.close();
-}
-function showSummary(){
-  const s=getState(); const sales=(s.day===todayKey()?s.sales:[])||[];
-  const total=sales.reduce((a,b)=>a+b.total,0), cash=sales.filter(x=>x.payment==='Efectivo').reduce((a,b)=>a+b.total,0), qr=sales.filter(x=>x.payment==='QR').reduce((a,b)=>a+b.total,0), credit=sales.filter(x=>x.payment==='Fiado').reduce((a,b)=>a+b.total,0);
-  $('#summaryContent').innerHTML=`<div class="summary-grid"><div class="summary-box"><span>Pedidos</span><strong>${sales.length}</strong></div><div class="summary-box"><span>Total vendido</span><strong>${money(total)}</strong></div><div class="summary-box"><span>Efectivo</span><strong>${money(cash)}</strong></div><div class="summary-box"><span>QR</span><strong>${money(qr)}</strong></div><div class="summary-box"><span>Fiado</span><strong>${money(credit)}</strong></div><div class="summary-box"><span>Efectivo esperado</span><strong>${money((s.openingAmount||0)+cash)}</strong></div></div>`;
-  $('#summaryDialog').showModal();
-}
-function closeCash(){
-  const s=getState(); if(!s.cashOpen) return alert('La caja ya está cerrada.');
-  const value=prompt('¿Cuánto dinero dejarás para cambio mañana?',String(s.nextOpeningAmount??80)); if(value===null)return;
-  const nextAmount=Number(value||0); saveState({...s,cashOpen:false,closedAt:new Date().toISOString(),nextOpeningAmount:nextAmount});
-  $('#summaryDialog').close();refreshCashStatus();alert('Caja cerrada correctamente.');
-}
-
-$('#openCashBtn').onclick=openCash;
-$('#confirmOpenCash').onclick=confirmCashOpen;
-$('#summaryBtn').onclick=showSummary;
-$('#closeCashBtn').onclick=closeCash;
-$('#clearCartBtn').onclick=()=>{if(cart.length&&confirm('¿Vaciar el pedido?')){cart=[];renderCart();}};
-$('#confirmSaleBtn').onclick=confirmSale;
-
-renderCategories();renderProducts();renderCart();refreshCashStatus();
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200)}
+function renderCategories(){const cats=['Menú','Bebidas','Extras'];$('categoryTabs').innerHTML=cats.map(c=>`<button class="${c===currentCategory?'active':''}" data-cat="${c}">${c}</button>`).join('');$('categoryTabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{currentCategory=b.dataset.cat;renderCategories();renderProducts()})}
+function renderProducts(){const q=$('searchInput').value.trim().toLowerCase();const list=products.filter(p=>p.category===currentCategory&&(!q||p.name.toLowerCase().includes(q)));$('productGrid').innerHTML=list.map(p=>`<article class="product-card"><div class="product-visual"><span class="product-badge">${p.badge}</span><span class="food-emoji">${p.emoji}</span></div><div class="product-body"><h3>${p.name}</h3><p>${p.desc}</p><div class="price-row"><strong>${money(p.price)}</strong><button class="add-control" data-id="${p.id}">＋ Agregar</button></div></div></article>`).join('');$('productGrid').querySelectorAll('.add-control').forEach(b=>b.onclick=()=>addToCart(b.dataset.id))}
+function addToCart(id){const p=products.find(x=>x.id===id);const line=cart.find(x=>x.id===id);line?line.qty++:cart.push({...p,qty:1});renderCart();openCart();toast(`${p.name} agregado`)}
+function changeQty(id,delta){const x=cart.find(i=>i.id===id);if(!x)return;x.qty+=delta;if(x.qty<=0)cart=cart.filter(i=>i.id!==id);renderCart()}
+function renderCart(){const count=cart.reduce((a,x)=>a+x.qty,0);const total=cart.reduce((a,x)=>a+x.qty*x.price,0);$('floatingCount').textContent=`${count} ${count===1?'producto':'productos'}`;$('floatingTotal').textContent=money(total);$('cartTotal').textContent=money(total);$('cartItems').innerHTML=cart.length?cart.map(x=>`<div class="cart-line"><div><strong>${x.name}</strong><small>${money(x.price)} c/u · ${money(x.price*x.qty)}</small></div><div class="qty"><button data-id="${x.id}" data-d="-1">−</button><b>${x.qty}</b><button data-id="${x.id}" data-d="1">＋</button></div></div>`).join(''):`<div class="empty-cart">🛒<br><b>El pedido está vacío</b><br><small>Agrega productos desde el menú.</small></div>`;$('cartItems').querySelectorAll('.qty button').forEach(b=>b.onclick=()=>changeQty(b.dataset.id,Number(b.dataset.d)))}
+function openCart(){ $('cartPanel').classList.add('open');$('cartBackdrop').classList.add('show');$('cartPanel').setAttribute('aria-hidden','false') }
+function closeCart(){ $('cartPanel').classList.remove('open');$('cartBackdrop').classList.remove('show');$('cartPanel').setAttribute('aria-hidden','true') }
+function renderQuickNotes(){ $('quickNotes').innerHTML=quickNotes.map(n=>`<button data-note="${n}" class="${selectedNotes.has(n)?'active':''}">${n}</button>`).join('');$('quickNotes').querySelectorAll('button').forEach(b=>b.onclick=()=>{selectedNotes.has(b.dataset.note)?selectedNotes.delete(b.dataset.note):selectedNotes.add(b.dataset.note);renderQuickNotes()}) }
+function setupSegment(id,setter){$(id).querySelectorAll('button').forEach(b=>b.onclick=()=>{$(id).querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');setter(b.dataset.value)})}
+async function nextOrder(){const sales=(await storeAll('sales')).filter(s=>s.date===todayKey());return sales.length+1}
+async function refreshOrderNumber(){const n=await nextOrder();$('orderNumber').textContent=`N.º ${String(n).padStart(3,'0')}`}
+async function loadCash(){const sessions=await storeAll('cashSessions');currentCash=sessions.find(x=>x.date===todayKey()&&!x.closedAt)||null;updateCashUI()}
+function updateCashUI(){if(currentCash){$('cashStatus').innerHTML='<i style="background:#58d09a"></i> Caja abierta';$('openCashBtn').textContent='Caja abierta'}else{$('cashStatus').innerHTML='<i></i> Caja cerrada';$('openCashBtn').textContent='Abrir caja'}}
+async function openCash(){if(currentCash){showSummary();return}$('cashDialog').showModal()}
+async function confirmOpenCash(e){e.preventDefault();currentCash={id:uid(),date:todayKey(),openedAt:new Date().toISOString(),openingAmount:Number($('openingAmount').value||0),closedAt:null,closingAmount:null,nextFund:null};await storePut('cashSessions',currentCash);await queueSync('cashSessions',currentCash);$('cashDialog').close();updateCashUI();toast('Caja abierta correctamente')}
+async function queueSync(entity,payload){await storePut('syncQueue',{id:uid(),entity,payload,status:'pending',createdAt:new Date().toISOString()})}
+async function confirmSale(){if(!currentCash){toast('Primero debes abrir la caja');$('cashDialog').showModal();return}if(!cart.length){toast('Agrega al menos un producto');return}if(payment==='QR'&&!confirm('¿Confirmas que el pago QR ya fue verificado?'))return;const n=await nextOrder();const total=cart.reduce((a,x)=>a+x.price*x.qty,0);const note=[...selectedNotes,$('customNote').value.trim()].filter(Boolean).join(' · ');const sale={id:uid(),date:todayKey(),orderNumber:n,createdAt:new Date().toISOString(),items:cart.map(x=>({id:x.id,name:x.name,qty:x.qty,price:x.price})),orderType,payment,note,total,status:'confirmed',cashSessionId:currentCash.id};await storePut('sales',sale);await queueSync('sales',sale);showPrint(sale);cart=[];selectedNotes.clear();$('customNote').value='';renderQuickNotes();renderCart();refreshOrderNumber();closeCart();toast(`Pedido ${String(n).padStart(3,'0')} registrado`)}
+function showPrint(s){const items=s.items.map(i=>`<div>${i.qty} × ${i.name}</div>`).join('');$('printContent').innerHTML=`<div class="ticket-stack"><div class="ticket"><h3>GOOD KING · COCINA</h3><div class="order-big">PEDIDO ${String(s.orderNumber).padStart(3,'0')}</div><p><b>${s.orderType}</b> · ${new Date(s.createdAt).toLocaleTimeString('es-BO',{hour:'2-digit',minute:'2-digit'})}</p><hr>${items}${s.note?`<hr><b>INDICACIONES:</b><div>${s.note}</div>`:''}</div><div class="ticket"><h3>GOOD KING</h3><div class="order-big">N.º ${String(s.orderNumber).padStart(3,'0')}</div><p style="text-align:center">Monto pagado</p><div class="order-big">${money(s.total)}</div></div></div>`;$('printDialog').showModal()}
+async function daySales(){return (await storeAll('sales')).filter(s=>s.date===todayKey()&&s.status==='confirmed')}
+async function showSummary(){const sales=await daySales();const total=sales.reduce((a,s)=>a+s.total,0);const cash=sales.filter(s=>s.payment==='Efectivo').reduce((a,s)=>a+s.total,0);const qr=sales.filter(s=>s.payment==='QR').reduce((a,s)=>a+s.total,0);$('summaryContent').innerHTML=`<div class="summary-grid"><div class="summary-metric"><span>Pedidos</span><strong>${sales.length}</strong></div><div class="summary-metric"><span>Total vendido</span><strong>${money(total)}</strong></div><div class="summary-metric"><span>Efectivo</span><strong>${money(cash)}</strong></div><div class="summary-metric"><span>QR</span><strong>${money(qr)}</strong></div><div class="summary-metric"><span>Fondo inicial</span><strong>${money(currentCash?.openingAmount||0)}</strong></div><div class="summary-metric"><span>Efectivo esperado</span><strong>${money((currentCash?.openingAmount||0)+cash)}</strong></div></div>`;$('closeCashBtn').style.display=currentCash?'inline-block':'none';$('summaryDialog').showModal()}
+async function closeCash(){const sales=await daySales();const cash=sales.filter(s=>s.payment==='Efectivo').reduce((a,s)=>a+s.total,0);const expected=(currentCash?.openingAmount||0)+cash;const counted=prompt(`Efectivo esperado: ${money(expected)}\n¿Cuánto dinero se contó en caja?`,expected);if(counted===null)return;const next=prompt('¿Cuánto se dejará como fondo para el siguiente día?','80');if(next===null)return;currentCash={...currentCash,closedAt:new Date().toISOString(),closingAmount:Number(counted),nextFund:Number(next)};await storePut('cashSessions',currentCash);await queueSync('cashSessions',currentCash);$('openingAmount').value=Number(next);currentCash=null;updateCashUI();$('summaryDialog').close();toast('Caja cerrada correctamente')}
+function showSideMenu(){ $('sideMenu').classList.add('open');$('menuBackdrop').classList.add('show') }
+function closeSideMenu(){ $('sideMenu').classList.remove('open');$('menuBackdrop').classList.remove('show') }
+function renderSideLinks(){ $('sideLinks').innerHTML=`<button data-module="sales"><i>⌂</i>Venta rápida</button>`+modules.map(m=>`<button data-module="${m[0]}"><i>${m[1]}</i>${m[2]}</button>`).join('');$('sideLinks').querySelectorAll('button').forEach(b=>b.onclick=()=>{navigate(b.dataset.module);closeSideMenu()}) }
+function navigate(module){document.querySelectorAll('.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.module===module));if(module==='sales'){ $('moduleView').classList.remove('active');$('salesView').classList.add('active');return }if(module==='more'){showSideMenu();return}if(module==='orders')renderModule(module);else if(module==='market')renderModule(module);else if(module==='cash')renderModule(module);else renderModule(module)}
+async function renderModule(key){const m=modules.find(x=>x[0]===key)||['more','•','Módulo',''];$('salesView').classList.remove('active');$('moduleView').classList.add('active');let body='';if(key==='orders'){const sales=(await storeAll('sales')).filter(s=>s.date===todayKey()).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));body=sales.length?`<div class="placeholder-list">${sales.map(s=>`<div class="placeholder-row"><div><b>Pedido ${String(s.orderNumber).padStart(3,'0')}</b><br><small>${new Date(s.createdAt).toLocaleTimeString('es-BO',{hour:'2-digit',minute:'2-digit'})} · ${s.orderType} · ${s.payment}</small></div><strong>${money(s.total)}</strong></div>`).join('')}</div>`:'<div class="module-card"><h3>Aún no hay pedidos hoy</h3><p>Los pedidos confirmados aparecerán aquí.</p></div>'}else if(key==='market'){body=`<div class="module-grid"><div class="module-card"><h3>Lista de hoy</h3><p>Agrega papa, arroz, pollo, bebidas, envases y cualquier faltante.</p><strong>Preparado para V0.5</strong></div><div class="module-card"><h3>Sugerencias automáticas</h3><p>Se generarán según stock mínimo e historial de consumo.</p><strong>Arquitectura definida</strong></div><div class="module-card"><h3>Registrar compra</h3><p>Al confirmar una compra se actualizará el inventario.</p><strong>Próxima fase</strong></div></div>`}else if(key==='cash'){const sales=await daySales();body=`<div class="module-grid"><div class="module-card"><h3>Estado</h3><p>${currentCash?'Caja abierta desde '+new Date(currentCash.openedAt).toLocaleTimeString('es-BO',{hour:'2-digit',minute:'2-digit'}):'Caja cerrada'}</p><strong>${sales.length} pedidos hoy</strong></div><div class="module-card"><h3>Fondo inicial</h3><p>Monto disponible al iniciar la jornada.</p><strong>${money(currentCash?.openingAmount||0)}</strong></div><div class="module-card"><h3>Resumen</h3><p>Consulta efectivo, QR y monto esperado.</p><button class="secondary-action" onclick="showSummary()">Ver resumen</button></div></div>`}else{body=`<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${m[3]}</p><strong>Se implementará por fases sin cambiar la arquitectura.</strong></div><div class="module-card"><h3>Trabajo local primero</h3><p>Los datos se almacenarán en IndexedDB para funcionar incluso sin internet.</p><strong>Base activa en V0.2</strong></div><div class="module-card"><h3>Sincronización futura</h3><p>El módulo se conectará con Supabase mediante una cola de sincronización.</p><strong>Previsto desde la base</strong></div></div>`}$('moduleContent').innerHTML=`<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King</p><h1>${m[2]}</h1><p>${m[3]}</p></div>${body}`}
+function updateClock(){const d=new Date();$('clockText').textContent=d.toLocaleString('es-BO',{weekday:'short',hour:'2-digit',minute:'2-digit'})}
+async function init(){await openDB();renderCategories();renderProducts();renderCart();renderQuickNotes();renderSideLinks();await loadCash();await refreshOrderNumber();updateClock();setInterval(updateClock,30000);$('searchInput').oninput=renderProducts;$('floatingCart').onclick=openCart;$('closeCartBtn').onclick=closeCart;$('cartBackdrop').onclick=closeCart;$('menuBtn').onclick=showSideMenu;$('closeMenuBtn').onclick=closeSideMenu;$('menuBackdrop').onclick=closeSideMenu;$('openCashBtn').onclick=openCash;$('confirmOpenCash').onclick=confirmOpenCash;$('todayBtn').onclick=showSummary;$('confirmSaleBtn').onclick=confirmSale;$('closeCashBtn').onclick=closeCash;$('printBtn').onclick=()=>window.print();$('backToSales').onclick=()=>navigate('sales');setupSegment('orderTypeGroup',v=>orderType=v);setupSegment('paymentGroup',v=>payment=v);document.querySelectorAll('.bottom-nav button').forEach(b=>b.onclick=()=>navigate(b.dataset.module));if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{})}
+init().catch(err=>{console.error(err);alert('No se pudo iniciar la base local. Actualiza el navegador o borra los datos del sitio.')});
