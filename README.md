@@ -1,22 +1,21 @@
-# Good King V0.2
+# Good King V0.4
 
-Prototipo funcional local-first.
+Versión enfocada en instalación PWA estable, migración segura desde V0.3, clientes autorizados, catálogo editable y preparación real de Supabase.
 
-## Incluye
-- Rediseño adaptable a computadora y celular.
-- Menú, Bebidas y Extras.
-- Carrito móvil que puede abrirse y cerrarse.
-- Tipo de pedido: Para la mesa / Para llevar.
-- Indicaciones rápidas.
-- Pago: Efectivo / QR.
-- Apertura y cierre de caja.
-- Pedidos diarios con numeración desde 001.
-- Impresión de comanda y ticket corto.
-- IndexedDB y cola local de sincronización preparada.
-- Navegación de todos los módulos de la arquitectura maestra.
+## Publicación
+Sube todo el contenido de este paquete a la raíz del repositorio GitHub Pages (`main` / `root`). No borres los datos del sitio al actualizar.
 
-## GitHub Pages
-Subir todos los archivos directamente a la raíz del repositorio y configurar Pages desde `main` / `(root)`.
+## Instalación móvil
+1. Abre la URL publicada con Chrome.
+2. Espera a que la barra de estado muestre que el Service Worker está activo.
+3. Pulsa **Instalar app**.
+4. Si Android no muestra el instalador, entra a **Más → Configuración → Reparar instalación**. Esta acción borra caché y registro PWA, pero conserva IndexedDB.
 
-## Nota
-Supabase todavía no está conectado. La cola `syncQueue` y los identificadores únicos dejan preparada la base para la integración posterior sin rehacer el flujo local.
+## Supabase
+1. Crea un proyecto.
+2. Ejecuta `supabase/schema-v0.4.sql` en SQL Editor.
+3. En Good King abre **Más → Configuración → Configurar Supabase**.
+4. Pega la URL del proyecto y la clave pública anon/publishable. Nunca uses `service_role`.
+5. Prueba la conexión y luego activa la sincronización.
+
+La operación diaria sigue siendo local-first: una falla de internet o Supabase no bloquea las ventas.
