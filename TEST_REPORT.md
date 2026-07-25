@@ -1,35 +1,23 @@
-# Informe de verificación — Good King V0.5
+# Good King V0.5.1 — Informe de saneamiento
 
-## Comprobaciones realizadas en el paquete
-
+## Verificaciones automáticas
 - Sintaxis JavaScript validada con `node --check`.
-- Manifest JSON válido.
-- Referencias del App Shell y archivos locales verificadas.
-- Migración IndexedDB V3 → V4 diseñada sin eliminación de almacenes anteriores.
-- Presencia de `config.js`, credenciales públicas y correos autorizados verificada.
-- Flujo de autenticación, cache de contexto, cierre de sesión y acceso offline revisado estáticamente.
-- Mapeo local/remoto revisado para caja, ventas, detalle, clientes, movimientos de crédito, productos, auditoría y eventos de sync.
-- Protección de escritura administrativa aplicada en interfaz para el rol ayudante.
-- Doble confirmación de venta continúa bloqueada mediante `isSaving` y bloqueo local.
-- Respaldo, restauración y diagnóstico conservados.
+- Manifest y `version.json` validados como JSON.
+- IDs HTML revisados sin duplicados.
+- Referencias críticas de archivos verificadas.
+- Service Worker actualizado a caché `good-king-v051-shell`.
+- IndexedDB mantiene `DB_VERSION = 4`; no se eliminan ni recrean almacenes.
 
-## Pruebas que deben realizarse después de publicar
+## Correcciones aplicadas
+- Eliminado el encabezado personalizado `x-application-name` del cliente Supabase.
+- Prueba de conexión cambiada a `/auth/v1/health` usando únicamente `apikey`.
+- Diagnóstico con timeout y mensajes diferenciados.
+- Inicio de sesión alternativo por REST si el SDK devuelve error de red.
+- Verificación de versión mediante `version.json` sin caché.
+- Botones de actualización en pantalla de acceso y Configuración.
+- Reparación de actualización sin borrar IndexedDB.
 
-El entorno de construcción no puede iniciar sesión en el proyecto privado ni conocer las contraseñas. Por ello deben comprobarse en GitHub Pages:
-
-1. Ingreso del administrador.
-2. Ingreso de la propietaria.
-3. Reconocimiento correcto del rol.
-4. Apertura de caja en computadora.
-5. Venta en efectivo y QR.
-6. Aparición de registros en Supabase.
-7. Venta sin internet y sincronización posterior.
-8. Consulta del mismo pedido desde el segundo dispositivo.
-9. Anulación y actualización remota.
-10. Cierre de caja.
-11. Conservación de datos de V0.4.
-12. Instalación PWA y actualización desde la versión anterior.
-
-## Criterio de aceptación
-
-No borrar datos del navegador. Ante un error, descargar primero el diagnóstico y el respaldo antes de reparar la instalación.
+## Pruebas que requieren publicación real
+- Inicio de sesión contra el proyecto Supabase del usuario.
+- Actualización desde PWA V0.4/V0.5 instalada en Android.
+- Sincronización real bajo RLS.

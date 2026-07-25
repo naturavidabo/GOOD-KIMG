@@ -9,11 +9,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Good King" />
   <meta name="description" content="Good King - ventas, caja e inventario" />
-  <title>Good King V0.5</title>
-  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Good King V0.5.1</title>
+  <link rel="manifest" href="manifest.webmanifest?v=0.5.1" />
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=0.5.1" />
 </head>
 <body>
   <section id="authGate" class="auth-gate" aria-live="polite">
@@ -39,6 +39,12 @@
         <button id="loginBtn" type="submit" class="primary-action">Ingresar</button>
         <button id="offlineAccessBtn" type="button" class="button-light" hidden>Continuar sin conexión</button>
         <button id="changeConnectionBtn" type="button" class="text-button">Ver datos de conexión</button>
+        <div class="auth-support-actions">
+          <button id="authDiagnosticBtn" type="button" class="button-light">Diagnosticar conexión</button>
+          <button id="authCheckUpdateBtn" type="button" class="button-light">Buscar actualización</button>
+          <button id="authForceUpdateBtn" type="button" class="text-button">Reparar actualización</button>
+        </div>
+        <div id="authDiagnosticResult" class="connection-result" hidden></div>
         <div id="loginResult" class="connection-result">Usa uno de los usuarios creados en Supabase.</div>
       </form>
 
@@ -165,7 +171,7 @@
         <button id="closeMenuBtn" aria-label="Cerrar menú">×</button>
       </div>
       <div id="sideLinks" class="side-links"></div>
-      <div class="side-footer"><span>V0.5 · Acceso autenticado y sincronización real</span><button id="logoutBtn" class="side-logout" hidden>Cerrar sesión</button></div>
+      <div class="side-footer"><span>V0.5.1 · Conexión y actualización estabilizadas</span><button id="logoutBtn" class="side-logout" hidden>Cerrar sesión</button></div>
     </aside>
     <div id="menuBackdrop" class="backdrop"></div>
 
@@ -302,8 +308,8 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script src="config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0"></script>
-  <script src="app.js"></script>
+  <script src="config.js?v=0.5.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0" crossorigin="anonymous"></script>
+  <script src="app.js?v=0.5.1"></script>
 </body>
 </html>

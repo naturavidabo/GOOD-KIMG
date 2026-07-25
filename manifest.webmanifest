@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Good King",
   "short_name": "Good King",
-  "description": "Ventas, caja y sincronización segura de Good King",
+  "description": "Ventas, caja y sincronización segura de Good King V0.5.1",
   "lang": "es-BO",
   "start_url": "./index.html",
   "scope": "./",

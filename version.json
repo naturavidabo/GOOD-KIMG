@@ -1,0 +1,6 @@
+{
+  "app": "Good King",
+  "version": "0.5.1",
+  "build": "2026-07-25-connection-update-fix",
+  "minimumDbVersion": 4
+}

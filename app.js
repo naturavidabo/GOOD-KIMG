@@ -1,7 +1,7 @@
 'use strict';
 
 const APP_ID = 'good-king';
-const APP_VERSION = '0.5.0';
+const APP_VERSION = '0.5.1';
 const PUBLIC_CONFIG = window.GOOD_KING_CONFIG || {};
 const SUPABASE_URL = PUBLIC_CONFIG.supabaseUrl || '';
 const SUPABASE_PUBLISHABLE_KEY = PUBLIC_CONFIG.supabasePublishableKey || '';
@@ -9,6 +9,8 @@ const ADMIN_EMAIL = PUBLIC_CONFIG.administratorEmail || 'goodking.bo@gmail.com';
 const OWNER_EMAIL = PUBLIC_CONFIG.ownerEmail || 'gloria.msg27@gmail.com';
 const DB_NAME = 'goodKingDB';
 const DB_VERSION = 4;
+const VERSION_ENDPOINT = './version.json';
+const NETWORK_TIMEOUT_MS = 12000;
 const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots'];
 const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots'];
 const moneyFormatter = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1131,6 +1133,138 @@ function hideAuthGate() {
   $('app').removeAttribute('aria-hidden');
 }
 
+
+function fetchWithTimeout(url, options = {}, timeoutMs = NETWORK_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, {...options, cache: options.cache || 'no-store', signal: controller.signal})
+    .finally(() => clearTimeout(timer));
+}
+
+function isFetchFailure(error) {
+  const text = String(error?.message || error || '').toLowerCase();
+  return error?.name === 'AbortError' || text.includes('failed to fetch') || text.includes('network') || text.includes('load failed');
+}
+
+function friendlyConnectionError(error) {
+  if (error?.name === 'AbortError') return 'Supabase no respondió dentro de 12 segundos. Revisa la conexión o el estado del proyecto.';
+  if (isFetchFailure(error)) return 'No se pudo llegar al dominio de Supabase. Revisa internet, DNS, VPN, antivirus o extensiones del navegador.';
+  return String(error?.message || error || 'Error de conexión desconocido.');
+}
+
+async function checkSupabaseHealth() {
+  const url = normalizeSupabaseUrl(SUPABASE_URL);
+  if (!url || !SUPABASE_PUBLISHABLE_KEY) throw new Error('La URL o la clave pública de Supabase no están configuradas.');
+  const startedAt = performance.now();
+  const response = await fetchWithTimeout(`${url}/auth/v1/health`, {
+    method:'GET',
+    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
+  });
+  const text = await response.text();
+  let payload = null;
+  try { payload = text ? JSON.parse(text) : null; } catch (_) { payload = {raw:text.slice(0,240)}; }
+  if (!response.ok) throw new Error(`Supabase respondió HTTP ${response.status}. ${payload?.message || payload?.msg || ''}`.trim());
+  return {ok:true,status:response.status,latencyMs:Math.round(performance.now()-startedAt),payload};
+}
+
+async function directPasswordLogin(email, password) {
+  const url = normalizeSupabaseUrl(SUPABASE_URL);
+  const response = await fetchWithTimeout(`${url}/auth/v1/token?grant_type=password`, {
+    method:'POST',
+    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json',Accept:'application/json'},
+    body:JSON.stringify({email,password})
+  });
+  const payload = await response.json().catch(()=>({}));
+  if (!response.ok) throw new Error(payload?.msg || payload?.message || payload?.error_description || `Supabase respondió HTTP ${response.status}.`);
+  if (!payload?.access_token || !payload?.refresh_token) throw new Error('Supabase respondió sin una sesión válida.');
+  const client = createSupabaseClient();
+  const {data,error} = await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});
+  if (error) throw error;
+  return data;
+}
+
+async function runConnectionDiagnostic({showToast=true} = {}) {
+  const target = $('authDiagnosticResult');
+  if (target) { target.hidden=false; target.className='connection-result'; target.textContent='Comprobando el dominio de Supabase…'; }
+  try {
+    const health = await checkSupabaseHealth();
+    const message = `Conexión correcta con Supabase (${health.latencyMs} ms). Auth: ${health.payload?.name || 'disponible'} ${health.payload?.version || ''}`.trim();
+    if (target) { target.textContent=message; target.className='connection-result success'; }
+    if (showToast) toast('Conexión con Supabase correcta.');
+    await putRecord('appMeta',{id:'last-supabase-health',checkedAt:nowIso(),...health});
+    return health;
+  } catch (error) {
+    const message = friendlyConnectionError(error);
+    if (target) { target.textContent=message; target.className='connection-result error'; }
+    if (showToast) toast(message,6200);
+    await logAppError('supabase-health',error,{url:SUPABASE_URL});
+    throw error;
+  }
+}
+
+function versionParts(version) {
+  return String(version || '0').split('.').map(part => Number.parseInt(part,10) || 0);
+}
+
+function compareVersions(a,b) {
+  const left=versionParts(a), right=versionParts(b);
+  for(let i=0;i<Math.max(left.length,right.length);i++) {
+    const diff=(left[i]||0)-(right[i]||0);
+    if(diff) return diff;
+  }
+  return 0;
+}
+
+async function getPublishedVersion() {
+  const response = await fetchWithTimeout(`${VERSION_ENDPOINT}?t=${Date.now()}`, {cache:'no-store'}, 10000);
+  if (!response.ok) throw new Error(`No se pudo consultar la versión publicada (HTTP ${response.status}).`);
+  return response.json();
+}
+
+async function checkForAppUpdate({interactive=true,apply=false} = {}) {
+  if (interactive) toast('Buscando actualización…');
+  try {
+    if ('serviceWorker' in navigator) {
+      swRegistration = swRegistration || await navigator.serviceWorker.getRegistration('./');
+      await swRegistration?.update();
+      if (swRegistration?.waiting) revealUpdateReady(swRegistration);
+    }
+    const published = await getPublishedVersion();
+    const newer = compareVersions(published.version,APP_VERSION) > 0;
+    if (newer || swRegistration?.waiting) {
+      updateReady=true;
+      $('updateAppBtn').hidden=false;
+      const message=`Versión ${published.version || 'nueva'} disponible.`;
+      if (interactive) toast(`${message} Presiona Actualizar.`,5200);
+      if (apply) await applyAppUpdate();
+      return {updateAvailable:true,published};
+    }
+    if (interactive) toast(`Good King está actualizado (V${APP_VERSION}).`);
+    return {updateAvailable:false,published};
+  } catch (error) {
+    if (interactive) toast(`No se pudo comprobar la actualización: ${friendlyConnectionError(error)}`,6200);
+    await logAppError('update-check',error);
+    return {updateAvailable:false,error};
+  }
+}
+
+async function forceAppRefresh() {
+  if (!confirm('Se reparará la actualización sin borrar ventas, caja, clientes ni IndexedDB. ¿Continuar?')) return;
+  try {
+    if (db) await createAutoBackup('antes de reparar actualización').catch(()=>{});
+    const registrations = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistrations() : [];
+    await Promise.all(registrations.map(registration=>registration.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key=>key.startsWith('good-king-')).map(key=>caches.delete(key)));
+    const next = new URL('./index.html',location.href);
+    next.searchParams.set('actualizar',Date.now());
+    location.replace(next.href);
+  } catch (error) {
+    await logAppError('force-update-repair',error);
+    toast(`No se pudo reparar la actualización: ${error.message || error}`,6200);
+  }
+}
+
 async function seedSupabaseConfig() {
   const current = await getRecord('settings','supabase-config');
   if (!current?.value?.url || !current?.value?.anonKey) {
@@ -1142,8 +1276,7 @@ function createSupabaseClient() {
   if (supabaseClient) return supabaseClient;
   if (!window.supabase?.createClient) throw new Error('No se pudo cargar el cliente de Supabase. Comprueba la conexión y vuelve a abrir Good King.');
   supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'good-king-auth-v05'},
-    global:{headers:{'x-application-name':`good-king/${APP_VERSION}`}}
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'good-king-auth-v05'}
   });
   return supabaseClient;
 }
@@ -1266,15 +1399,25 @@ async function handleLogin(event) {
   $('loginResult').textContent='Verificando usuario y negocio…'; $('loginResult').className='connection-result';
   try {
     const client=createSupabaseClient();
-    const {data,error}=await client.auth.signInWithPassword({email,password});
-    if (error) throw error;
+    let data=null;
+    try {
+      const result=await client.auth.signInWithPassword({email,password});
+      if (result.error) throw result.error;
+      data=result.data;
+    } catch (firstError) {
+      if (!isFetchFailure(firstError)) throw firstError;
+      await runConnectionDiagnostic({showToast:false});
+      data=await directPasswordLogin(email,password);
+    }
+    if (!data?.session) throw new Error('Supabase no devolvió una sesión válida.');
     await putRecord('settings',{id:'last-login-email',value:email,updatedAt:nowIso()});
     await completeAuthentication(data.session,{allowCache:false});
     $('loginPassword').value='';
     $('loginResult').textContent='Acceso correcto.'; $('loginResult').className='connection-result success';
     toast(`Bienvenido, ${authContext.displayName}.`);
   } catch (error) {
-    $('loginResult').textContent=error.message || 'No se pudo iniciar sesión.'; $('loginResult').className='connection-result error';
+    const message=isFetchFailure(error) ? friendlyConnectionError(error) : (error.message || 'No se pudo iniciar sesión.');
+    $('loginResult').textContent=message; $('loginResult').className='connection-result error';
     await logAppError('auth-login',error,{email});
   } finally {button.disabled=false;button.textContent='Ingresar';}
 }
@@ -1408,13 +1551,13 @@ async function testSupabaseConnection(config = null) {
   const url = normalizeSupabaseUrl(current.url);
   const key = String(current.anonKey || '').trim();
   if (!url || !key) throw new Error('Completa la URL y la clave pública.');
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 9000);
-  try {
-    const response = await fetch(`${url}/auth/v1/settings`, { headers:{ apikey:key, Authorization:`Bearer ${key}` }, signal:controller.signal });
-    if (!response.ok) throw new Error(`Supabase respondió ${response.status}. Verifica URL, clave y configuración.`);
-    return { ok:true, checkedAt:nowIso(), status:response.status };
-  } finally { clearTimeout(timer); }
+  const startedAt=performance.now();
+  const response = await fetchWithTimeout(`${url}/auth/v1/health`, {
+    method:'GET', headers:{apikey:key,Accept:'application/json'}
+  });
+  const payload=await response.json().catch(()=>({}));
+  if (!response.ok) throw new Error(`Supabase respondió ${response.status}: ${payload?.message || payload?.msg || 'verifica URL y clave'}.`);
+  return {ok:true,checkedAt:nowIso(),status:response.status,latencyMs:Math.round(performance.now()-startedAt),version:payload?.version || null};
 }
 
 async function saveSupabaseConfig(event) {
@@ -1593,7 +1736,7 @@ async function renderSettingsModule() {
   const lastBackup = backups[0] ? new Date(backups[0].createdAt).toLocaleString('es-BO') : 'Todavía no existe';
   return `<div class="maintenance-grid">
     <section class="maintenance-card featured"><h3>Respaldo de seguridad</h3><p>Descarga caja, pedidos, clientes, catálogo y auditoría. La restauración valida integridad antes de reemplazar datos.</p><div class="button-row"><button id="exportBackupBtn" class="primary-action">Descargar respaldo</button><button id="restoreBackupBtn" class="button-light">Restaurar respaldo</button></div><small>Último respaldo interno: ${escapeHTML(lastBackup)} · Se conservan los 5 más recientes.</small></section>
-    <section class="maintenance-card"><h3>Instalación de la aplicación</h3><p>${pwa.standalone ? 'Good King está instalada como aplicación.' : 'Instala la PWA o repara caché y Service Worker sin borrar IndexedDB.'}</p><div class="button-row"><button id="settingsInstallBtn" class="secondary-action">${pwa.standalone ? 'Ver estado':'Instalar app'}</button><button id="settingsRepairPwaBtn" class="button-light">Reparar instalación</button></div><small>HTTPS: ${pwa.secureContext?'sí':'no'} · SW: ${pwa.controlled?'activo':'preparando'} · cachés: ${pwa.caches.length}</small></section>
+    <section class="maintenance-card"><h3>Instalación y actualización</h3><p>${pwa.standalone ? 'Good King está instalada como aplicación.' : 'Instala la PWA o repara caché y Service Worker sin borrar IndexedDB.'}</p><div class="button-row"><button id="settingsInstallBtn" class="secondary-action">${pwa.standalone ? 'Ver instalación':'Instalar app'}</button><button id="settingsCheckUpdateBtn" class="secondary-action">Buscar actualización</button><button id="settingsRepairPwaBtn" class="button-light">Reparar instalación</button><button id="settingsForceUpdateBtn" class="button-light">Forzar actualización</button></div><small>Versión actual: V${APP_VERSION} · HTTPS: ${pwa.secureContext?'sí':'no'} · SW: ${pwa.controlled?'activo':'preparando'} · cachés: ${pwa.caches.length}</small></section>
     <section class="maintenance-card"><h3>Supabase y acceso remoto</h3><p>${authContext ? `${escapeHTML(authContext.displayName)} · ${escapeHTML(roleLabel(authContext.role))} · ${authContext.offline ? 'modo local':'sesión autenticada'}` : 'Sin sesión autenticada.'}</p><div class="button-row"><button id="configureSupabaseBtn" class="secondary-action">Ver conexión</button><button id="syncNowBtn" class="button-light" ${!supabase.enabled || !authContext || authContext.offline ? 'disabled':''}>Sincronizar ahora</button></div><small>${pending} evento(s) por enviar · ${lastSync?.checkedAt ? `última sincronización ${new Date(lastSync.checkedAt).toLocaleString('es-BO')}` : 'todavía no se sincronizó en esta versión'}</small></section>
     <section class="maintenance-card"><h3>Verificación integral</h3><p>Revisa duplicados, totales, cajas, clientes, catálogo y cola de sincronización.</p><div class="button-row"><button id="verifyDataBtn" class="secondary-action">Verificar ahora</button><button id="exportDiagnosticsBtn" class="button-light">Descargar diagnóstico</button></div><small>${health ? `Última revisión: ${new Date(health.checkedAt).toLocaleString('es-BO')} · ${health.errors.length} error(es)` : 'Todavía no se realizó una revisión.'}</small></section>
     <section class="maintenance-card"><h3>Protección del navegador</h3><p>${storage.persisted ? 'El almacenamiento está marcado como persistente.' : 'Solicita protección y conserva copias descargadas.'}</p><button id="persistStorageBtn" class="secondary-action">Solicitar protección</button><small>Uso: ${usageMb} MB de ${quotaMb} MB estimados.</small></section>
@@ -1622,7 +1765,7 @@ async function renderModule(key) {
   } else {
     body = `<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${escapeHTML(module[3])}</p><strong>No se habilitarán botones ficticios.</strong></div><div class="module-card"><h3>Persistencia local</h3><p>El módulo utilizará IndexedDB y movimientos auditables.</p><strong>Base local y remota estabilizada en V0.5</strong></div><div class="module-card"><h3>Sincronización autenticada</h3><p>Los cambios se guardan primero localmente y después se envían a Supabase.</p><strong>Sin depender de internet para operar</strong></div></div>`;
   }
-  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.5</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
+  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.5.1</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
 
   $('moduleContent').querySelectorAll('.reprint-sale').forEach(button => button.onclick = async () => {
     const sale = await getRecord('sales', button.dataset.id);
@@ -1641,7 +1784,9 @@ async function renderModule(key) {
   $('newProductBtn')?.addEventListener('click', () => openProductDialog());
   $('moduleContent').querySelectorAll('.edit-product').forEach(button => button.onclick = () => openProductDialog(products.find(item=>item.id===button.dataset.id)));
   $('settingsInstallBtn')?.addEventListener('click', showInstallDialog);
+  $('settingsCheckUpdateBtn')?.addEventListener('click', () => checkForAppUpdate({interactive:true}));
   $('settingsRepairPwaBtn')?.addEventListener('click', repairPwaInstallation);
+  $('settingsForceUpdateBtn')?.addEventListener('click', forceAppRefresh);
   $('configureSupabaseBtn')?.addEventListener('click', openSupabaseDialog);
   $('syncNowBtn')?.addEventListener('click', async () => { toast('Sincronizando…'); const result=await syncPendingRecords(); toast(`${result.synced} enviado(s) · ${result.pulled || 0} recibido(s) · ${result.failed} error(es)`,4800); });
   $('exportDiagnosticsBtn')?.addEventListener('click', exportDiagnostics);
@@ -1657,7 +1802,7 @@ async function registerServiceWorker() {
     return;
   }
   try {
-    swRegistration = await navigator.serviceWorker.register('./sw.js', { scope:'./', updateViaCache:'none' });
+    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.5.1', { scope:'./', updateViaCache:'none' });
     if (swRegistration.waiting) revealUpdateReady(swRegistration);
     swRegistration.addEventListener('updatefound', () => {
       const worker = swRegistration.installing;
@@ -1671,7 +1816,7 @@ async function registerServiceWorker() {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (reloadAfterUpdate) location.reload();
     });
-    setTimeout(() => swRegistration.update().catch(()=>{}), 2500);
+    setTimeout(() => checkForAppUpdate({interactive:false}), 2200);
   } catch (error) {
     console.warn('Service Worker no disponible', error);
     await logAppError('service-worker-register', error);
@@ -1754,7 +1899,10 @@ async function init() {
   $('loginForm').onsubmit = handleLogin;
   $('offlineAccessBtn').onclick = continueOffline;
   $('logoutBtn').onclick = logoutUser;
-  $('changeConnectionBtn').onclick = () => toast('La conexión de Good King está administrada en esta versión.');
+  $('changeConnectionBtn').onclick = openSupabaseDialog;
+  $('authDiagnosticBtn').onclick = () => runConnectionDiagnostic({showToast:true}).catch(()=>{});
+  $('authCheckUpdateBtn').onclick = () => checkForAppUpdate({interactive:true});
+  $('authForceUpdateBtn').onclick = forceAppRefresh;
   document.querySelectorAll('[data-login-email]').forEach(button => button.onclick = () => { $('loginEmail').value = button.dataset.loginEmail; $('loginPassword').focus(); });
   $('dismissSupabase').onclick = () => $('supabaseDialog').close();
   $('testSupabaseBtn').onclick = handleSupabaseTest;
@@ -1775,6 +1923,7 @@ async function init() {
       await loadCash();
       await refreshStatus();
       await refreshOrderNumber();
+      checkForAppUpdate({interactive:false}).catch(()=>{});
     }
   });
 

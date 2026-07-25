@@ -1,21 +1,18 @@
-const CACHE_NAME = 'good-king-v05-shell';
+const CACHE_NAME = 'good-king-v051-shell';
 const CACHE_PREFIX = 'good-king-';
-const APP_SHELL = [
-  './', './index.html', './styles.css', './config.js', './app.js', './manifest.webmanifest',
+const LOCAL_SHELL = [
+  './', './index.html', './styles.css?v=0.5.1', './config.js?v=0.5.1', './app.js?v=0.5.1',
+  './manifest.webmanifest?v=0.5.1', './version.json',
   './assets/logo.jpg', './assets/icon-192.png', './assets/icon-512.png',
-  './assets/icon-maskable-512.png', './assets/apple-touch-icon.png', './assets/favicon-64.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0'
+  './assets/icon-maskable-512.png', './assets/apple-touch-icon.png', './assets/favicon-64.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    for (const url of APP_SHELL) {
-      try {
-        await cache.add(new Request(url, { cache: 'reload' }));
-      } catch (error) {
-        console.warn('[Good King] No se pudo precargar:', url, error);
-      }
+    for (const url of LOCAL_SHELL) {
+      try { await cache.add(new Request(url,{cache:'reload'})); }
+      catch (error) { console.warn('[Good King] No se pudo precargar:',url,error); }
     }
   })());
 });
@@ -26,43 +23,41 @@ self.addEventListener('message', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME).map(key => caches.delete(key)));
+    const keys=await caches.keys();
+    await Promise.all(keys.filter(key=>key.startsWith(CACHE_PREFIX)&&key!==CACHE_NAME).map(key=>caches.delete(key)));
     await self.clients.claim();
   })());
 });
 
-async function networkFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
+async function networkFirst(request,fallback='./index.html') {
+  const cache=await caches.open(CACHE_NAME);
   try {
-    const response = await fetch(request);
-    if (response?.ok) await cache.put(request, response.clone());
+    const response=await fetch(request,{cache:'no-store'});
+    if(response?.ok) await cache.put(request,response.clone());
     return response;
-  } catch (error) {
-    return (await cache.match(request)) || (await cache.match('./index.html')) || Response.error();
+  } catch(error) {
+    return (await cache.match(request)) || (fallback ? await cache.match(fallback) : null) || Response.error();
   }
 }
 
-async function staleWhileRevalidate(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  const networkPromise = fetch(request).then(async response => {
-    if (response?.ok) await cache.put(request, response.clone());
+async function cacheFirst(request) {
+  const cache=await caches.open(CACHE_NAME);
+  const cached=await cache.match(request);
+  if(cached) return cached;
+  try {
+    const response=await fetch(request);
+    if(response?.ok) await cache.put(request,response.clone());
     return response;
-  }).catch(() => null);
-  return cached || (await networkPromise) || Response.error();
+  } catch(error) { return Response.error(); }
 }
 
 self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) {
-    if (url.hostname === 'cdn.jsdelivr.net') event.respondWith(staleWhileRevalidate(event.request));
-    return;
+  if(event.request.method!=='GET') return;
+  const url=new URL(event.request.url);
+  if(url.origin!==self.location.origin) return; // Supabase y CDN nunca pasan por el SW.
+  if(event.request.mode==='navigate') return event.respondWith(networkFirst(event.request));
+  if(url.pathname.endsWith('/version.json') || url.pathname.endsWith('/config.js') || url.pathname.endsWith('/app.js') || url.pathname.endsWith('/styles.css') || url.pathname.endsWith('/manifest.webmanifest')) {
+    return event.respondWith(networkFirst(event.request,null));
   }
-  if (event.request.mode === 'navigate') {
-    event.respondWith(networkFirst(event.request));
-    return;
-  }
-  event.respondWith(staleWhileRevalidate(event.request));
+  event.respondWith(cacheFirst(event.request));
 });

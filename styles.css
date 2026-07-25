@@ -95,3 +95,11 @@
   .status-strip { gap:7px; }
   .user-status { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
 }
+
+
+/* V0.5.1 · soporte de conexión y actualización */
+.auth-support-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.auth-support-actions .text-button{grid-column:1/-1;margin-top:0}
+.auth-support-actions button{min-height:44px}
+#authDiagnosticResult{margin-top:10px}
+@media(max-width:520px){.auth-support-actions{grid-template-columns:1fr}.auth-support-actions .text-button{grid-column:auto}.auth-card{max-height:calc(100dvh - 24px)}}
