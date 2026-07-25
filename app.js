@@ -1,11 +1,16 @@
 'use strict';
 
 const APP_ID = 'good-king';
-const APP_VERSION = '0.4.0';
+const APP_VERSION = '0.5.0';
+const PUBLIC_CONFIG = window.GOOD_KING_CONFIG || {};
+const SUPABASE_URL = PUBLIC_CONFIG.supabaseUrl || '';
+const SUPABASE_PUBLISHABLE_KEY = PUBLIC_CONFIG.supabasePublishableKey || '';
+const ADMIN_EMAIL = PUBLIC_CONFIG.administratorEmail || 'goodking.bo@gmail.com';
+const OWNER_EMAIL = PUBLIC_CONFIG.ownerEmail || 'gloria.msg27@gmail.com';
 const DB_NAME = 'goodKingDB';
-const DB_VERSION = 3;
-const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors'];
-const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors'];
+const DB_VERSION = 4;
+const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots'];
+const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots'];
 const moneyFormatter = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const DEFAULT_PRODUCTS = [
@@ -65,6 +70,12 @@ let swRegistration = null;
 let updateReady = false;
 let reloadAfterUpdate = false;
 let currentModuleKey = 'sales';
+let supabaseClient = null;
+let authSession = null;
+let authContext = null;
+let authSubscription = null;
+let remoteCategoryMap = null;
+let syncInProgress = false;
 
 const $ = id => document.getElementById(id);
 const money = value => `Bs ${moneyFormatter.format(Number(value || 0))}`;
@@ -112,7 +123,9 @@ function openDB() {
       if (!catalogStore.indexNames.contains('category')) catalogStore.createIndex('category', 'category', { unique: false });
       const errorStore = transaction.objectStore('appErrors');
       if (!errorStore.indexNames.contains('createdAt')) errorStore.createIndex('createdAt', 'createdAt', { unique: false });
-      if (event.oldVersion < 3) {
+      const remoteStore = transaction.objectStore('remoteSnapshots');
+      if (!remoteStore.indexNames.contains('updatedAt')) remoteStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+      if (event.oldVersion < 4) {
         transaction.objectStore('appMeta').put({
           id: 'schema',
           appId: APP_ID,
@@ -258,6 +271,31 @@ window.addEventListener('appinstalled', () => {
   updateInstallUI();
   toast('Good King se instaló correctamente.');
 });
+
+
+async function prepareV05MigrationQueue() {
+  const migration = await getRecord('appMeta','v05-core-sync-migration');
+  if (migration?.completedAt) return;
+  const sources = [
+    ['cashSessions','cashSessions'],
+    ['sales','sales'],
+    ['clients','clients'],
+    ['clientPayments','clientPayments'],
+    ['productCatalog','productCatalog']
+  ];
+  const transaction = db.transaction(['syncQueue','appMeta',...sources.map(([store])=>store)],'readwrite');
+  const queueStore = transaction.objectStore('syncQueue');
+  let queued = 0;
+  for (const [storeName,entity] of sources) {
+    const records = await requestPromise(transaction.objectStore(storeName).getAll());
+    for (const record of records) {
+      queueStore.put({...queueRecord(entity,record),migration:'v0.5-real-tables'});
+      queued++;
+    }
+  }
+  transaction.objectStore('appMeta').put({id:'v05-core-sync-migration',queued,completedAt:nowIso(),appVersion:APP_VERSION});
+  await transactionPromise(transaction);
+}
 
 async function ensureMetadata() {
   const schema = await getRecord('appMeta', 'schema');
@@ -849,12 +887,13 @@ async function updateStorageStatus() {
 }
 
 async function refreshStatus() {
-  const queue = await getAllRecords('syncQueue');
-  const pending = queue.filter(item => item.status === 'pending' || item.status === 'error').length;
-  const network = navigator.onLine ? 'En línea' : 'Sin conexión';
-  const config = await getSupabaseConfig();
-  const remote = config.enabled ? 'Supabase activo' : 'Solo local';
-  $('syncStatus').textContent = `● ${network} · ${remote} · ${pending} pendiente${pending === 1 ? '' : 's'}`;
+  const queue=await getAllRecords('syncQueue');
+  const pending=queue.filter(item=>item.status==='pending'||item.status==='error').length;
+  const network=navigator.onLine?'En línea':'Sin internet';
+  const remote=authContext ? (authContext.offline?'sesión local':`${roleLabel(authContext.role)} conectado`) : 'sin sesión';
+  $('syncStatus').textContent=`● ${network} · ${remote} · ${pending} pendiente${pending===1?'':'s'}`;
+  $('syncStatus').className=navigator.onLine?'online':'offline';
+  updateAuthenticatedUI();
 }
 
 function notifyOtherTabs(type) {
@@ -872,7 +911,9 @@ function closeSideMenu() {
 }
 
 function renderSideLinks() {
-  $('sideLinks').innerHTML = `<button data-module="sales"><i>⌂</i>Venta rápida</button>` + modules.map(module =>
+  const restricted = new Set(['clients','products','recipes','inventory','market','purchases','expenses','reports','users','settings']);
+  const visibleModules = authContext?.role === 'helper' ? modules.filter(module => !restricted.has(module[0])) : modules;
+  $('sideLinks').innerHTML = `<button data-module="sales"><i>⌂</i>Venta rápida</button>` + visibleModules.map(module =>
     `<button data-module="${escapeHTML(module[0])}"><i>${module[1]}</i>${escapeHTML(module[2])}</button>`
   ).join('');
   $('sideLinks').querySelectorAll('button').forEach(button => {
@@ -881,6 +922,8 @@ function renderSideLinks() {
 }
 
 function navigate(module) {
+  const restricted = new Set(['clients','products','recipes','inventory','market','purchases','expenses','reports','users','settings']);
+  if (authContext?.role === 'helper' && restricted.has(module)) return toast('Este módulo requiere autorización de la propietaria o del administrador.');
   currentModuleKey = module;
   if (history.replaceState) history.replaceState(null, '', module === 'sales' ? '#sales' : `#${module}`);
   document.querySelectorAll('.bottom-nav button').forEach(button => button.classList.toggle('active', button.dataset.module === module));
@@ -935,6 +978,7 @@ function openClientDialog(client = null) {
 
 async function saveClient(event) {
   event.preventDefault();
+  if (!canManageBusiness()) return toast('Solo la propietaria o el administrador pueden modificar clientes.');
   const id = $('clientId').value || uid();
   const existing = await getRecord('clients', id);
   const client = {
@@ -957,6 +1001,7 @@ async function saveClient(event) {
 }
 
 async function openClientTransaction(clientId, type) {
+  if (!canManageBusiness()) return toast('Este movimiento requiere autorización de la propietaria o del administrador.');
   const client = await getRecord('clients', clientId);
   if (!client) return toast('No se encontró al cliente.');
   if (type === 'charge' && !client.creditAllowed) return toast('Este cliente no está autorizado para fiado.');
@@ -972,6 +1017,7 @@ async function openClientTransaction(clientId, type) {
 
 async function saveClientTransaction(event) {
   event.preventDefault();
+  if (!canManageBusiness()) return toast('Este movimiento requiere autorización de la propietaria o del administrador.');
   const clientId = $('clientTxnClientId').value;
   const type = $('clientTxnType').value;
   const amount = Number($('clientTxnAmount').value);
@@ -1033,6 +1079,7 @@ function openProductDialog(product = null) {
 
 async function saveProduct(event) {
   event.preventDefault();
+  if (!canManageBusiness()) return toast('Solo la propietaria o el administrador pueden modificar productos.');
   const name = $('productName').value.trim();
   if (!name) return toast('Ingresa el nombre del producto.');
   const requestedId = $('productId').value;
@@ -1060,8 +1107,296 @@ async function saveProduct(event) {
   toast('Producto guardado correctamente.');
 }
 
+
+function roleLabel(role) {
+  return ({admin:'Administrador', owner:'Propietaria', helper:'Ayudante'})[role] || 'Usuario';
+}
+
+function canManageBusiness() {
+  return ['admin','owner'].includes(authContext?.role);
+}
+
+function setAuthPanel(panel) {
+  ['connectionSetupForm','loginForm','authLoadingPanel'].forEach(id => { if ($(id)) $(id).hidden = id !== panel; });
+}
+
+function showAuthGate(message = 'Inicia sesión para continuar.') {
+  $('authMessage').textContent = message;
+  $('authGate').classList.remove('hidden');
+  $('app').setAttribute('aria-hidden','true');
+}
+
+function hideAuthGate() {
+  $('authGate').classList.add('hidden');
+  $('app').removeAttribute('aria-hidden');
+}
+
+async function seedSupabaseConfig() {
+  const current = await getRecord('settings','supabase-config');
+  if (!current?.value?.url || !current?.value?.anonKey) {
+    await putRecord('settings', {id:'supabase-config', value:{url:SUPABASE_URL,anonKey:SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true,updatedAt:nowIso()}, updatedAt:nowIso()});
+  }
+}
+
+function createSupabaseClient() {
+  if (supabaseClient) return supabaseClient;
+  if (!window.supabase?.createClient) throw new Error('No se pudo cargar el cliente de Supabase. Comprueba la conexión y vuelve a abrir Good King.');
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'good-king-auth-v05'},
+    global:{headers:{'x-application-name':`good-king/${APP_VERSION}`}}
+  });
+  return supabaseClient;
+}
+
+async function cacheAuthContext(context) {
+  await putRecord('settings',{id:'auth-context',value:{...context,cachedAt:nowIso()},updatedAt:nowIso()});
+  await putRecord('settings',{id:'offline-auth-disabled',value:false,updatedAt:nowIso()});
+}
+
+async function getCachedAuthContext() {
+  return (await getRecord('settings','auth-context'))?.value || null;
+}
+
+async function loadRemoteUserContext(session, allowCache = true) {
+  if (!session?.user?.id) throw new Error('La sesión de usuario no es válida.');
+  try {
+    const client = createSupabaseClient();
+    const {data:member,error:memberError} = await client.from('business_members').select('business_id, role, active').eq('user_id',session.user.id).eq('active',true).maybeSingle();
+    if (memberError) throw memberError;
+    if (!member) throw new Error('El usuario no está asignado al negocio Good King.');
+    const [{data:business,error:businessError},{data:profile,error:profileError}] = await Promise.all([
+      client.from('businesses').select('id,name,slug,timezone,currency_code,active').eq('id',member.business_id).single(),
+      client.from('profiles').select('id,display_name,phone,active').eq('id',session.user.id).single()
+    ]);
+    if (businessError) throw businessError;
+    if (profileError) throw profileError;
+    if (!business?.active || !profile?.active) throw new Error('El acceso está deshabilitado.');
+    const context = {userId:session.user.id,email:session.user.email,businessId:business.id,businessName:business.name,businessSlug:business.slug,role:member.role,displayName:profile.display_name || session.user.email,timezone:business.timezone,currency:business.currency_code,verifiedAt:nowIso(),offline:false};
+    await cacheAuthContext(context);
+    return context;
+  } catch (error) {
+    const cached = allowCache ? await getCachedAuthContext() : null;
+    if (cached?.userId === session.user.id && (!navigator.onLine || String(error.message || '').toLowerCase().includes('fetch'))) return {...cached,offline:true};
+    throw error;
+  }
+}
+
+async function registerRemoteDevice() {
+  if (!supabaseClient || !authSession || !authContext || !navigator.onLine) return;
+  const id = await getDeviceId();
+  let nameRecord = await getRecord('settings','device-name');
+  if (!nameRecord?.value) {
+    const platform = /android/i.test(navigator.userAgent) ? 'Celular Android' : /windows/i.test(navigator.userAgent) ? 'Computadora Windows' : 'Dispositivo Good King';
+    nameRecord={id:'device-name',value:platform,updatedAt:nowIso()};
+    await putRecord('settings',nameRecord);
+  }
+  const row={id,business_id:authContext.businessId,user_id:authContext.userId,device_name:nameRecord.value,platform:navigator.userAgent.slice(0,180),app_version:APP_VERSION,active:true,last_seen_at:nowIso(),updated_at:nowIso()};
+  const {error}=await supabaseClient.from('devices').upsert(row,{onConflict:'id'});
+  if (error) throw error;
+}
+
+function updateAuthenticatedUI() {
+  const label = authContext ? `${authContext.displayName} · ${roleLabel(authContext.role)}` : 'Sin sesión';
+  $('userStatus').textContent = label;
+  $('userStatus').className = `user-status ${authContext?.offline ? 'offline' : 'online'}`;
+  $('sideUserText').textContent = label;
+  $('logoutBtn').hidden = !authSession && !authContext;
+  renderSideLinks();
+}
+
+async function completeAuthentication(session, options={}) {
+  authSession=session;
+  authContext=await loadRemoteUserContext(session,options.allowCache !== false);
+  updateAuthenticatedUI();
+  hideAuthGate();
+  if (navigator.onLine && !authContext.offline) {
+    await registerRemoteDevice().catch(error=>logAppError('device-register',error));
+    syncPendingRecords().catch(console.error);
+  }
+}
+
+async function bootstrapAuthentication() {
+  showAuthGate('Verificando sesión y permisos…');
+  setAuthPanel('authLoadingPanel');
+  await seedSupabaseConfig();
+  try {
+    const client=createSupabaseClient();
+    if (authSubscription) authSubscription.unsubscribe?.();
+    const {data:sub}=client.auth.onAuthStateChange((event,session)=>{
+      if (event==='SIGNED_OUT') {
+        authSession=null; authContext=null; updateAuthenticatedUI(); showAuthGate('La sesión fue cerrada.'); setAuthPanel('loginForm');
+      }
+    });
+    authSubscription=sub.subscription;
+    const {data:{session},error}=await client.auth.getSession();
+    if (error) throw error;
+    if (session) {
+      await completeAuthentication(session);
+      return;
+    }
+    const cached=await getCachedAuthContext();
+    const disabled=(await getRecord('settings','offline-auth-disabled'))?.value === true;
+    $('offlineAccessBtn').hidden=!cached || disabled || navigator.onLine;
+    $('loginEmail').value=(await getRecord('settings','last-login-email'))?.value || ADMIN_EMAIL;
+    showAuthGate('Ingresa con uno de los usuarios autorizados.');
+    setAuthPanel('loginForm');
+  } catch (error) {
+    await logAppError('auth-bootstrap',error);
+    const cached=await getCachedAuthContext();
+    const disabled=(await getRecord('settings','offline-auth-disabled'))?.value === true;
+    if (cached && !disabled) {
+      authContext={...cached,offline:true}; authSession=null; updateAuthenticatedUI();
+      $('offlineAccessBtn').hidden=false;
+      showAuthGate(navigator.onLine ? 'No se pudo verificar en línea. Puedes continuar con el último acceso verificado.' : 'Sin internet. Puedes continuar con el último acceso verificado.'); setAuthPanel('loginForm');
+    } else {
+      $('loginResult').textContent=error.message || 'No se pudo verificar la sesión.';
+      $('loginResult').className='connection-result error';
+      showAuthGate('No se pudo completar la verificación.'); setAuthPanel('loginForm');
+    }
+  }
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  const email=$('loginEmail').value.trim().toLowerCase();
+  const password=$('loginPassword').value;
+  const button=$('loginBtn');
+  if (!email || !password) return;
+  button.disabled=true; button.textContent='Ingresando…';
+  $('loginResult').textContent='Verificando usuario y negocio…'; $('loginResult').className='connection-result';
+  try {
+    const client=createSupabaseClient();
+    const {data,error}=await client.auth.signInWithPassword({email,password});
+    if (error) throw error;
+    await putRecord('settings',{id:'last-login-email',value:email,updatedAt:nowIso()});
+    await completeAuthentication(data.session,{allowCache:false});
+    $('loginPassword').value='';
+    $('loginResult').textContent='Acceso correcto.'; $('loginResult').className='connection-result success';
+    toast(`Bienvenido, ${authContext.displayName}.`);
+  } catch (error) {
+    $('loginResult').textContent=error.message || 'No se pudo iniciar sesión.'; $('loginResult').className='connection-result error';
+    await logAppError('auth-login',error,{email});
+  } finally {button.disabled=false;button.textContent='Ingresar';}
+}
+
+async function continueOffline() {
+  const cached=await getCachedAuthContext();
+  if (!cached) return toast('No existe un acceso verificado en este dispositivo.');
+  authContext={...cached,offline:true}; authSession=null; updateAuthenticatedUI(); hideAuthGate();
+  toast('Modo sin conexión: los cambios quedarán pendientes de sincronización.',4200);
+}
+
+async function logoutUser() {
+  if (!confirm('¿Cerrar la sesión de Good King en este dispositivo?')) return;
+  await putRecord('settings',{id:'offline-auth-disabled',value:true,updatedAt:nowIso()});
+  try { if (supabaseClient) await supabaseClient.auth.signOut(); } catch (_) {}
+  authSession=null;authContext=null;updateAuthenticatedUI();showAuthGate('Sesión cerrada.');setAuthPanel('loginForm');
+}
+
+async function ensureAuthSession() {
+  if (authSession?.access_token) return authSession;
+  if (!supabaseClient) return null;
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  authSession=session;
+  return session;
+}
+
+async function getRemoteCategoryMap() {
+  if (remoteCategoryMap) return remoteCategoryMap;
+  const {data,error}=await supabaseClient.from('product_categories').select('id,code,name').eq('business_id',authContext.businessId).eq('active',true);
+  if (error) throw error;
+  remoteCategoryMap=Object.fromEntries((data||[]).map(item=>[item.code,item.id]));
+  return remoteCategoryMap;
+}
+
+function categoryCode(category) {
+  return category==='Bebidas'?'drinks':category==='Extras'?'extras':'menu';
+}
+
+async function ensureProductRemoteId(product) {
+  if (product.remoteId) return product;
+  const updated={...product,remoteId:uid(),updatedAt:nowIso()};
+  await putRecord('productCatalog',updated);
+  products=products.map(item=>item.id===updated.id?updated:item);
+  return updated;
+}
+
+async function ensureSaleItemRemoteIds(sale) {
+  let changed=false;
+  const items=(sale.items||[]).map(item=>{if(item.remoteId)return item;changed=true;return {...item,remoteId:uid()};});
+  if (!changed) return sale;
+  const updated={...sale,items,updatedAt:sale.updatedAt||nowIso()};
+  await putRecord('sales',updated);
+  return updated;
+}
+
+async function pushQueueItem(item, deviceId) {
+  const client=supabaseClient, businessId=authContext.businessId, userId=authContext.userId;
+  let payload=item.payload;
+  if (item.entity==='cashSessions') {
+    const row={id:payload.id,business_id:businessId,business_date:payload.date,opening_amount:Number(payload.openingAmount||0),expected_cash:payload.expectedAmount==null?null:Number(payload.expectedAmount),counted_cash:payload.closingAmount==null?null:Number(payload.closingAmount),difference:payload.difference==null?null:Number(payload.difference),next_fund:payload.nextFund==null?null:Number(payload.nextFund),status:payload.status||'open',opened_by:userId,closed_by:payload.status==='closed'?userId:null,device_id:deviceId,opened_at:payload.openedAt,closed_at:payload.closedAt||null,payload:{app_version:payload.appVersion||APP_VERSION},updated_at:payload.updatedAt||nowIso()};
+    const {error}=await client.from('cash_sessions').upsert(row,{onConflict:'id'}); if(error)throw error;
+  } else if (item.entity==='sales') {
+    payload=await ensureSaleItemRemoteIds(payload);
+    item.payload=payload;
+    const row={id:payload.id,business_id:businessId,cash_session_id:payload.cashSessionId||null,customer_id:payload.customerId||null,business_date:payload.date,order_number:Number(payload.orderNumber),order_type:payload.orderType==='Para llevar'?'takeaway':'table',payment_method:payload.payment==='QR'?'qr':payload.payment==='Fiado'?'credit':'cash',subtotal:Number(payload.total||0),total:Number(payload.total||0),status:payload.status==='cancelled'?'cancelled':'confirmed',notes:payload.note||null,quick_notes:Array.isArray(payload.quickNotes)?payload.quickNotes:[],cancelled_reason:payload.cancellationReason||null,cancelled_at:payload.cancelledAt||null,created_by:userId,cancelled_by:payload.status==='cancelled'?userId:null,device_id:deviceId,created_at:payload.createdAt,updated_at:payload.updatedAt||nowIso()};
+    let {error}=await client.from('sales').upsert(row,{onConflict:'id'}); if(error)throw error;
+    const itemRows=(payload.items||[]).map(line=>({id:line.remoteId,business_id:businessId,sale_id:payload.id,product_id:null,product_name:line.name,quantity:Number(line.qty),unit_price:Number(line.price),line_total:Number(line.qty)*Number(line.price),payload:{local_product_id:line.id},updated_at:payload.updatedAt||nowIso()}));
+    if(itemRows.length){({error}=await client.from('sale_items').upsert(itemRows,{onConflict:'id'}));if(error)throw error;}
+  } else if (item.entity==='clients') {
+    const row={id:payload.id,business_id:businessId,name:payload.name,phone:payload.phone||null,notes:payload.note||null,credit_allowed:Boolean(payload.creditAllowed),balance:Number(payload.balance||0),active:payload.active!==false,created_by:userId,device_id:deviceId,created_at:payload.createdAt||nowIso(),updated_at:payload.updatedAt||nowIso()};
+    const {error}=await client.from('customers').upsert(row,{onConflict:'id'});if(error)throw error;
+  } else if (item.entity==='clientPayments') {
+    const row={id:payload.id,business_id:businessId,customer_id:payload.clientId,sale_id:payload.saleId||null,movement_type:payload.type==='charge'?'charge':'payment',amount:Number(payload.amount),payment_method:payload.type==='payment'?(payload.method==='QR'?'qr':'cash'):null,detail:payload.detail||null,created_by:userId,device_id:deviceId,created_at:payload.createdAt||nowIso(),updated_at:payload.updatedAt||nowIso()};
+    const {error}=await client.from('customer_credit_movements').upsert(row,{onConflict:'id'});if(error)throw error;
+  } else if (item.entity==='productCatalog') {
+    payload=await ensureProductRemoteId(payload); item.payload=payload;
+    const categories=await getRemoteCategoryMap();
+    const row={id:payload.remoteId,business_id:businessId,category_id:categories[categoryCode(payload.category)]||null,name:payload.name,description:payload.desc||null,price:Number(payload.price||0),icon:payload.emoji||null,availability:payload.status==='soldout'?'sold_out':payload.status==='low'?'low_stock':'available',sort_order:Number(payload.sortOrder||0),active:payload.active!==false,payload:{local_id:payload.id,badge:payload.badge||''},created_by:userId,device_id:deviceId,created_at:payload.createdAt||nowIso(),updated_at:payload.updatedAt||nowIso()};
+    const {error}=await client.from('products').upsert(row,{onConflict:'id'});if(error)throw error;
+  }
+  const eventRow={id:item.id,business_id:businessId,device_id:deviceId,user_id:userId,entity:item.entity,entity_id:String(item.entityId),operation:item.operation||'upsert',payload:item.payload||{},sync_status:'processed',created_at:item.createdAt||nowIso(),updated_at:nowIso()};
+  const {error:eventError}=await client.from('sync_events').upsert(eventRow,{onConflict:'id'});if(eventError)throw eventError;
+}
+
+async function pushUnsyncedAudits(deviceId) {
+  if (!canManageBusiness() && authContext?.role!=='helper') return 0;
+  const audits=(await getAllRecords('auditLogs')).filter(a=>!a.remoteSyncedAt).slice(0,100);
+  let count=0;
+  for(const audit of audits){
+    const row={id:audit.id,business_id:authContext.businessId,user_id:authContext.userId,device_id:deviceId,action:audit.action,entity:audit.entity,entity_id:String(audit.entityId||''),details:audit.details||{},created_at:audit.createdAt||nowIso()};
+    const {error}=await supabaseClient.from('audit_logs').insert(row);
+    if(error && error.code!=='23505') throw error;
+    audit.remoteSyncedAt=nowIso(); await putRecord('auditLogs',audit); count++;
+  }
+  return count;
+}
+
+async function pullRemoteCoreData() {
+  if (!supabaseClient || !authContext || !navigator.onLine) return {pulled:0};
+  const pendingIds=new Set((await getAllRecords('syncQueue')).filter(q=>q.status!=='synced').map(q=>`${q.entity}:${q.entityId}`));
+  let pulled=0;
+  const [{data:cash,error:cashError},{data:sales,error:salesError},{data:customers,error:customersError},{data:credits,error:creditsError},{data:remoteProducts,error:productsError}] = await Promise.all([
+    supabaseClient.from('cash_sessions').select('*').eq('business_id',authContext.businessId),
+    supabaseClient.from('sales').select('*, sale_items(*)').eq('business_id',authContext.businessId).order('created_at',{ascending:false}).limit(1000),
+    supabaseClient.from('customers').select('*').eq('business_id',authContext.businessId),
+    supabaseClient.from('customer_credit_movements').select('*').eq('business_id',authContext.businessId).order('created_at',{ascending:false}).limit(1000),
+    supabaseClient.from('products').select('*, product_categories(code,name)').eq('business_id',authContext.businessId)
+  ]);
+  const firstError=[cashError,salesError,customersError,creditsError,productsError].find(Boolean); if(firstError)throw firstError;
+  for(const row of cash||[]){if(pendingIds.has(`cashSessions:${row.id}`))continue;await putRecord('cashSessions',{id:row.id,date:row.business_date,openedAt:row.opened_at,openingAmount:Number(row.opening_amount||0),closedAt:row.closed_at,closingAmount:row.counted_cash==null?null:Number(row.counted_cash),expectedAmount:row.expected_cash==null?null:Number(row.expected_cash),difference:row.difference==null?null:Number(row.difference),nextFund:row.next_fund==null?null:Number(row.next_fund),status:row.status,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
+  for(const row of sales||[]){if(pendingIds.has(`sales:${row.id}`))continue;await putRecord('sales',{id:row.id,date:row.business_date,orderNumber:Number(row.order_number),orderType:row.order_type==='takeaway'?'Para llevar':'Para la mesa',payment:row.payment_method==='qr'?'QR':row.payment_method==='credit'?'Fiado':'Efectivo',note:row.notes||'',total:Number(row.total||0),status:row.status==='cancelled'?'cancelled':'confirmed',cashSessionId:row.cash_session_id,customerId:row.customer_id,createdAt:row.created_at,updatedAt:row.updated_at,cancelledAt:row.cancelled_at,cancellationReason:row.cancelled_reason,items:(row.sale_items||[]).filter(i=>!i.deleted_at).map(i=>({id:i.payload?.local_product_id||i.product_id||i.id,remoteId:i.id,name:i.product_name,qty:Number(i.quantity),price:Number(i.unit_price)})),appVersion:APP_VERSION,remote:true});pulled++;}
+  for(const row of customers||[]){if(pendingIds.has(`clients:${row.id}`))continue;await putRecord('clients',{id:row.id,name:row.name,phone:row.phone||'',note:row.notes||'',creditAllowed:Boolean(row.credit_allowed),balance:Number(row.balance||0),active:row.active!==false,createdAt:row.created_at,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
+  for(const row of credits||[]){if(pendingIds.has(`clientPayments:${row.id}`))continue;await putRecord('clientPayments',{id:row.id,clientId:row.customer_id,type:row.movement_type==='charge'?'charge':'payment',amount:Number(row.amount),method:row.payment_method==='qr'?'QR':row.movement_type==='charge'?'Fiado':'Efectivo',detail:row.detail||'',date:String(row.created_at).slice(0,10),createdAt:row.created_at,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
+  for(const row of remoteProducts||[]){const localId=row.payload?.local_id||`remote-${row.id}`;if(pendingIds.has(`productCatalog:${localId}`))continue;const category=row.product_categories?.code==='drinks'?'Bebidas':row.product_categories?.code==='extras'?'Extras':'Menú';await putRecord('productCatalog',{id:localId,remoteId:row.id,name:row.name,price:Number(row.price||0),category,desc:row.description||'',badge:row.payload?.badge||'Good King',emoji:row.icon||'🍽️',status:row.availability==='sold_out'?'soldout':row.availability==='low_stock'?'low':'available',active:row.active!==false,sortOrder:Number(row.sort_order||0),createdAt:row.created_at,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
+  await ensureDefaultCatalog(); renderProducts();
+  await putRecord('remoteSnapshots',{id:'last-pull',updatedAt:nowIso(),counts:{cash:(cash||[]).length,sales:(sales||[]).length,customers:(customers||[]).length,credits:(credits||[]).length,products:(remoteProducts||[]).length}});
+  await loadCash(); await repairOrderCounters(); await refreshOrderNumber();
+  return {pulled};
+}
+
 async function getSupabaseConfig() {
-  return (await getRecord('settings', 'supabase-config'))?.value || { url:'', anonKey:'', enabled:false, lastTest:null };
+  return (await getRecord('settings', 'supabase-config'))?.value || { url:SUPABASE_URL, anonKey:SUPABASE_PUBLISHABLE_KEY, enabled:true, lastTest:null, managed:true };
 }
 
 function normalizeSupabaseUrl(url) {
@@ -1085,7 +1420,7 @@ async function testSupabaseConnection(config = null) {
 async function saveSupabaseConfig(event) {
   event.preventDefault();
   const config = {
-    url:normalizeSupabaseUrl($('supabaseUrl').value), anonKey:$('supabaseAnonKey').value.trim(),
+    url:SUPABASE_URL, anonKey:SUPABASE_PUBLISHABLE_KEY,
     enabled:$('supabaseEnabled').checked, updatedAt:nowIso(), lastTest:(await getSupabaseConfig()).lastTest || null
   };
   if (config.enabled && (!config.url || !config.anonKey)) return toast('Para activar sincronización completa URL y clave.');
@@ -1100,8 +1435,8 @@ async function saveSupabaseConfig(event) {
 
 async function openSupabaseDialog() {
   const config = await getSupabaseConfig();
-  $('supabaseUrl').value = config.url || '';
-  $('supabaseAnonKey').value = config.anonKey || '';
+  $('supabaseUrl').value = SUPABASE_URL;
+  $('supabaseAnonKey').value = SUPABASE_PUBLISHABLE_KEY;
   $('supabaseEnabled').checked = Boolean(config.enabled);
   $('supabaseTestResult').textContent = config.lastTest?.ok ? `Última prueba correcta: ${new Date(config.lastTest.checkedAt).toLocaleString('es-BO')}` : 'Todavía no se probó la conexión.';
   $('supabaseDialog').showModal();
@@ -1113,7 +1448,7 @@ async function handleSupabaseTest() {
   button.disabled = true;
   result.textContent = 'Probando conexión…';
   try {
-    const config = {url:$('supabaseUrl').value,anonKey:$('supabaseAnonKey').value};
+    const config = {url:SUPABASE_URL,anonKey:SUPABASE_PUBLISHABLE_KEY};
     const test = await testSupabaseConnection(config);
     const stored = await getSupabaseConfig();
     stored.lastTest = test;
@@ -1130,30 +1465,36 @@ async function handleSupabaseTest() {
 }
 
 async function syncPendingRecords() {
-  const config = await getSupabaseConfig();
-  if (!config.enabled || !config.url || !config.anonKey || !navigator.onLine) return {synced:0,failed:0};
-  const queue = (await getAllRecords('syncQueue')).filter(item => item.status === 'pending' || item.status === 'error').sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))).slice(0,100);
-  if (!queue.length) return {synced:0,failed:0};
-  const deviceId = await getDeviceId();
-  let synced = 0, failed = 0;
-  for (const item of queue) {
-    try {
-      const response = await fetch(`${normalizeSupabaseUrl(config.url)}/rest/v1/sync_events?on_conflict=id`, {
-        method:'POST', headers:{ apikey:config.anonKey, Authorization:`Bearer ${config.anonKey}`, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
-        body:JSON.stringify({id:item.id,device_id:deviceId,entity:item.entity,entity_id:item.entityId,operation:item.operation,payload:item.payload,created_at:item.createdAt,updated_at:nowIso()})
-      });
-      if (!response.ok) throw new Error(`Sync ${response.status}: ${(await response.text()).slice(0,180)}`);
-      item.status = 'synced'; item.syncedAt = nowIso(); item.updatedAt = nowIso(); item.lastError = null;
-      await putRecord('syncQueue', item); synced += 1;
-    } catch (error) {
-      item.status = 'error'; item.attempts = Number(item.attempts || 0) + 1; item.lastError = String(error.message || error); item.updatedAt = nowIso();
-      await putRecord('syncQueue', item); await logAppError('supabase-sync', error, {queueId:item.id,entity:item.entity}); failed += 1;
-      if (!navigator.onLine) break;
+  if (syncInProgress) return {synced:0,failed:0,pulled:0,busy:true};
+  const config=await getSupabaseConfig();
+  if (!config.enabled || !navigator.onLine || !authContext || authContext.offline) return {synced:0,failed:0,pulled:0};
+  const session=await ensureAuthSession();
+  if (!session) return {synced:0,failed:0,pulled:0};
+  syncInProgress=true;
+  const queue=(await getAllRecords('syncQueue')).filter(item=>item.status==='pending'||item.status==='error').sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))).slice(0,200);
+  const deviceId=await getDeviceId();
+  let synced=0,failed=0,pulled=0;
+  try {
+    await registerRemoteDevice();
+    for(const item of queue){
+      if (authContext.role === 'helper' && ['clients','clientPayments','productCatalog'].includes(item.entity)) continue;
+      try {
+        await pushQueueItem(item,deviceId);
+        item.status='synced';item.syncedAt=nowIso();item.updatedAt=nowIso();item.lastError=null;
+        await putRecord('syncQueue',item);synced++;
+      } catch(error){
+        item.status='error';item.attempts=Number(item.attempts||0)+1;item.lastError=String(error.message||error);item.updatedAt=nowIso();
+        await putRecord('syncQueue',item);await logAppError('supabase-sync',error,{queueId:item.id,entity:item.entity});failed++;
+        if(!navigator.onLine)break;
+      }
     }
+    try { await pushUnsyncedAudits(deviceId); } catch(error) { await logAppError('audit-sync',error); }
+    if(!failed){const result=await pullRemoteCoreData();pulled=result.pulled||0;}
+    await putRecord('appMeta',{id:'last-sync',synced,failed,pulled,checkedAt:nowIso(),userId:authContext.userId,businessId:authContext.businessId});
+  } finally {
+    syncInProgress=false;await refreshStatus();if(currentModuleKey==='settings')await renderModule('settings');
   }
-  await refreshStatus();
-  if (currentModuleKey === 'settings') await renderModule('settings');
-  return {synced,failed};
+  return {synced,failed,pulled};
 }
 
 async function getPwaDiagnostics() {
@@ -1244,6 +1585,7 @@ async function renderSettingsModule() {
   const storage = await storageState();
   const pwa = await getPwaDiagnostics();
   const supabase = await getSupabaseConfig();
+  const lastSync = await getRecord('appMeta','last-sync');
   const queue = await getAllRecords('syncQueue');
   const pending = queue.filter(item=>item.status==='pending' || item.status==='error').length;
   const usageMb = (storage.usage / 1024 / 1024).toFixed(2);
@@ -1252,7 +1594,7 @@ async function renderSettingsModule() {
   return `<div class="maintenance-grid">
     <section class="maintenance-card featured"><h3>Respaldo de seguridad</h3><p>Descarga caja, pedidos, clientes, catálogo y auditoría. La restauración valida integridad antes de reemplazar datos.</p><div class="button-row"><button id="exportBackupBtn" class="primary-action">Descargar respaldo</button><button id="restoreBackupBtn" class="button-light">Restaurar respaldo</button></div><small>Último respaldo interno: ${escapeHTML(lastBackup)} · Se conservan los 5 más recientes.</small></section>
     <section class="maintenance-card"><h3>Instalación de la aplicación</h3><p>${pwa.standalone ? 'Good King está instalada como aplicación.' : 'Instala la PWA o repara caché y Service Worker sin borrar IndexedDB.'}</p><div class="button-row"><button id="settingsInstallBtn" class="secondary-action">${pwa.standalone ? 'Ver estado':'Instalar app'}</button><button id="settingsRepairPwaBtn" class="button-light">Reparar instalación</button></div><small>HTTPS: ${pwa.secureContext?'sí':'no'} · SW: ${pwa.controlled?'activo':'preparando'} · cachés: ${pwa.caches.length}</small></section>
-    <section class="maintenance-card"><h3>Supabase y acceso remoto</h3><p>${supabase.enabled ? 'Sincronización automática activada.' : 'La operación sigue local. Configura Supabase cuando el proyecto y el SQL estén listos.'}</p><div class="button-row"><button id="configureSupabaseBtn" class="secondary-action">Configurar</button><button id="syncNowBtn" class="button-light" ${!supabase.enabled ? 'disabled':''}>Sincronizar ahora</button></div><small>${pending} evento(s) por enviar · ${supabase.lastTest?.ok ? 'conexión probada':'sin conexión probada'}</small></section>
+    <section class="maintenance-card"><h3>Supabase y acceso remoto</h3><p>${authContext ? `${escapeHTML(authContext.displayName)} · ${escapeHTML(roleLabel(authContext.role))} · ${authContext.offline ? 'modo local':'sesión autenticada'}` : 'Sin sesión autenticada.'}</p><div class="button-row"><button id="configureSupabaseBtn" class="secondary-action">Ver conexión</button><button id="syncNowBtn" class="button-light" ${!supabase.enabled || !authContext || authContext.offline ? 'disabled':''}>Sincronizar ahora</button></div><small>${pending} evento(s) por enviar · ${lastSync?.checkedAt ? `última sincronización ${new Date(lastSync.checkedAt).toLocaleString('es-BO')}` : 'todavía no se sincronizó en esta versión'}</small></section>
     <section class="maintenance-card"><h3>Verificación integral</h3><p>Revisa duplicados, totales, cajas, clientes, catálogo y cola de sincronización.</p><div class="button-row"><button id="verifyDataBtn" class="secondary-action">Verificar ahora</button><button id="exportDiagnosticsBtn" class="button-light">Descargar diagnóstico</button></div><small>${health ? `Última revisión: ${new Date(health.checkedAt).toLocaleString('es-BO')} · ${health.errors.length} error(es)` : 'Todavía no se realizó una revisión.'}</small></section>
     <section class="maintenance-card"><h3>Protección del navegador</h3><p>${storage.persisted ? 'El almacenamiento está marcado como persistente.' : 'Solicita protección y conserva copias descargadas.'}</p><button id="persistStorageBtn" class="secondary-action">Solicitar protección</button><small>Uso: ${usageMb} MB de ${quotaMb} MB estimados.</small></section>
     <section class="maintenance-card"><h3>Estado de registros</h3><div class="record-counts"><span>Ventas <b>${counts.sales}</b></span><span>Cajas <b>${counts.cashSessions}</b></span><span>Clientes <b>${counts.clients}</b></span><span>Catálogo <b>${counts.productCatalog}</b></span><span>Pendientes sync <b>${pending}</b></span><span>Errores registrados <b>${counts.appErrors}</b></span></div></section>
@@ -1278,9 +1620,9 @@ async function renderModule(key) {
   } else if (key === 'market') {
     body = `<div class="module-grid"><div class="module-card"><h3>Lista de mercado</h3><p>Este módulo se implementará después de estabilizar ventas y caja.</p><strong>Datos protegidos desde la base</strong></div><div class="module-card"><h3>Sugerencias automáticas</h3><p>Se calcularán según stock mínimo e historial de consumo.</p><strong>Previsto en la arquitectura</strong></div><div class="module-card"><h3>Ingreso a inventario</h3><p>Las compras confirmadas aumentarán el stock mediante movimientos auditables.</p><strong>Próxima fase funcional</strong></div></div>`;
   } else {
-    body = `<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${escapeHTML(module[3])}</p><strong>No se habilitarán botones ficticios.</strong></div><div class="module-card"><h3>Persistencia local</h3><p>El módulo utilizará IndexedDB y movimientos auditables.</p><strong>Base migrada y estabilizada en V0.4</strong></div><div class="module-card"><h3>Sincronización futura</h3><p>Los cambios se enviarán a Supabase mediante la cola local.</p><strong>Sin depender de internet para operar</strong></div></div>`;
+    body = `<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${escapeHTML(module[3])}</p><strong>No se habilitarán botones ficticios.</strong></div><div class="module-card"><h3>Persistencia local</h3><p>El módulo utilizará IndexedDB y movimientos auditables.</p><strong>Base local y remota estabilizada en V0.5</strong></div><div class="module-card"><h3>Sincronización autenticada</h3><p>Los cambios se guardan primero localmente y después se envían a Supabase.</p><strong>Sin depender de internet para operar</strong></div></div>`;
   }
-  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.4</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
+  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.5</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
 
   $('moduleContent').querySelectorAll('.reprint-sale').forEach(button => button.onclick = async () => {
     const sale = await getRecord('sales', button.dataset.id);
@@ -1301,7 +1643,7 @@ async function renderModule(key) {
   $('settingsInstallBtn')?.addEventListener('click', showInstallDialog);
   $('settingsRepairPwaBtn')?.addEventListener('click', repairPwaInstallation);
   $('configureSupabaseBtn')?.addEventListener('click', openSupabaseDialog);
-  $('syncNowBtn')?.addEventListener('click', async () => { toast('Sincronizando…'); const result=await syncPendingRecords(); toast(`${result.synced} enviado(s) · ${result.failed} error(es)`,4200); });
+  $('syncNowBtn')?.addEventListener('click', async () => { toast('Sincronizando…'); const result=await syncPendingRecords(); toast(`${result.synced} enviado(s) · ${result.pulled || 0} recibido(s) · ${result.failed} error(es)`,4800); });
   $('exportDiagnosticsBtn')?.addEventListener('click', exportDiagnostics);
 }
 
@@ -1358,6 +1700,7 @@ async function init() {
   await openDB();
   await ensureMetadata();
   await ensureDefaultCatalog();
+  await prepareV05MigrationQueue();
   await getDeviceId();
   await repairOrderCounters();
   renderCategories();
@@ -1408,6 +1751,11 @@ async function init() {
   $('productForm').onsubmit = saveProduct;
   $('dismissProduct').onclick = $('cancelProduct').onclick = () => $('productDialog').close();
   $('supabaseForm').onsubmit = saveSupabaseConfig;
+  $('loginForm').onsubmit = handleLogin;
+  $('offlineAccessBtn').onclick = continueOffline;
+  $('logoutBtn').onclick = logoutUser;
+  $('changeConnectionBtn').onclick = () => toast('La conexión de Good King está administrada en esta versión.');
+  document.querySelectorAll('[data-login-email]').forEach(button => button.onclick = () => { $('loginEmail').value = button.dataset.loginEmail; $('loginPassword').focus(); });
   $('dismissSupabase').onclick = () => $('supabaseDialog').close();
   $('testSupabaseBtn').onclick = handleSupabaseTest;
   $('backToSales').onclick = () => navigate('sales');
@@ -1415,7 +1763,7 @@ async function init() {
   setupSegment('paymentGroup', value => payment = value);
   document.querySelectorAll('.bottom-nav button').forEach(button => button.onclick = () => navigate(button.dataset.module));
 
-  window.addEventListener('online', async () => { await refreshStatus(); syncPendingRecords().catch(console.error); });
+  window.addEventListener('online', async () => { await refreshStatus(); if(authSession||authContext){try{const session=await ensureAuthSession();if(session&&!authContext?.offline)await completeAuthentication(session);}catch(error){await logAppError('online-auth-refresh',error);}syncPendingRecords().catch(console.error);} });
   window.addEventListener('offline', refreshStatus);
   window.addEventListener('beforeunload', event => {
     if (!isSaving) return;
@@ -1432,9 +1780,10 @@ async function init() {
 
   setupBroadcastChannel();
   await registerServiceWorker();
+  await bootstrapAuthentication();
   const initialModule = location.hash.replace('#','');
   if (initialModule && initialModule !== 'sales') setTimeout(()=>navigate(initialModule),200);
-  setTimeout(() => createAutoBackup('migración e inicio de V0.4').catch(console.error), 1800);
+  setTimeout(() => createAutoBackup('migración e inicio de V0.5').catch(console.error), 1800);
   setTimeout(() => syncPendingRecords().catch(console.error), 3200);
 }
 

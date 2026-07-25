@@ -1,9 +1,10 @@
-const CACHE_NAME = 'good-king-v04-shell';
+const CACHE_NAME = 'good-king-v05-shell';
 const CACHE_PREFIX = 'good-king-';
 const APP_SHELL = [
-  './', './index.html', './styles.css', './app.js', './manifest.webmanifest',
+  './', './index.html', './styles.css', './config.js', './app.js', './manifest.webmanifest',
   './assets/logo.jpg', './assets/icon-192.png', './assets/icon-512.png',
-  './assets/icon-maskable-512.png', './assets/apple-touch-icon.png', './assets/favicon-64.png'
+  './assets/icon-maskable-512.png', './assets/apple-touch-icon.png', './assets/favicon-64.png',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0'
 ];
 
 self.addEventListener('install', event => {
@@ -55,7 +56,10 @@ async function staleWhileRevalidate(request) {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) {
+    if (url.hostname === 'cdn.jsdelivr.net') event.respondWith(staleWhileRevalidate(event.request));
+    return;
+  }
   if (event.request.mode === 'navigate') {
     event.respondWith(networkFirst(event.request));
     return;

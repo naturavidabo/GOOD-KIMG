@@ -10,7 +10,7 @@
 @media(max-width:390px){.product-card{min-height:295px}.product-stepper{grid-template-columns:35px 1fr 35px}.product-stepper button{font-size:22px}.record-counts{grid-template-columns:1fr}}
 
 
-/* Good King V0.4 */
+/* Good King V0.5 */
 .status-action{border:1px solid rgba(255,255,255,.38);background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:6px 11px;font-weight:850;cursor:pointer;white-space:nowrap}.status-action.update{background:var(--yellow);color:#321b00;border-color:transparent}.status-action[hidden]{display:none!important}
 .product-card.soldout{filter:saturate(.55);opacity:.72}.product-card.soldout .product-visual:after{content:'AGOTADO';position:absolute;inset:auto 12px 12px;background:#211f26;color:#fff;border-radius:10px;padding:5px 9px;font-weight:900;font-size:.72rem;letter-spacing:.05em}.product-card.low-stock{box-shadow:0 0 0 2px rgba(255,153,20,.55),var(--shadow)}
 .install-card{max-width:620px}.install-guide{display:grid;gap:14px}.install-state{padding:17px;border-radius:18px;background:#fff7df;border:1px solid #f1d88c}.install-state.success{background:#eaf9f1;border-color:#a8dfc4}.install-state b{font-size:1.05rem}.install-state p{margin:6px 0 0;color:var(--muted);line-height:1.5}.diagnostic-mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.diagnostic-mini span{background:#f7f3ef;border:1px solid var(--line);border-radius:14px;padding:10px;font-size:.78rem}.diagnostic-mini b{display:block;margin-top:4px}
@@ -18,3 +18,80 @@
 .module-summary{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px}.module-summary>div{min-width:145px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:13px 16px;box-shadow:0 8px 25px rgba(80,34,12,.07)}.module-summary small{display:block;color:var(--muted)}.module-summary strong{display:block;font-size:1.35rem;margin-top:3px}.module-summary>button{margin-left:auto}
 .clients-list,.admin-products-list{display:grid;gap:10px}.client-row,.admin-product-row{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:13px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:14px 15px;box-shadow:0 9px 28px rgba(80,34,12,.07)}.client-avatar,.admin-product-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:linear-gradient(145deg,var(--yellow),var(--orange));font-size:1.35rem;font-weight:950;color:#5b2100}.client-main{display:grid;gap:3px}.client-main b,.admin-product-row b{font-size:1rem}.client-main small,.admin-product-row small{color:var(--muted)}.client-main span{font-size:.75rem;color:#a26b00}.client-balance{text-align:right}.client-balance small{display:block;color:var(--muted)}.client-balance strong{font-size:1.1rem;color:var(--red-dark)}.client-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.client-actions button{padding:9px 12px}.admin-product-row.inactive{opacity:.58}.admin-product-row>strong{color:var(--red-dark)}
 @media(max-width:760px){.status-strip{gap:7px;flex-wrap:wrap}.status-action{font-size:.72rem;padding:5px 9px}.form-two{grid-template-columns:1fr}.client-row,.admin-product-row{grid-template-columns:auto 1fr auto}.client-actions{grid-column:1/-1;justify-content:stretch}.client-actions button{flex:1}.module-summary>button{margin-left:0;width:100%}.diagnostic-mini{grid-template-columns:1fr}.admin-product-row>button{grid-column:1/-1}.client-balance{min-width:72px}}
+
+/* V0.5 · acceso autenticado y estado remoto */
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 14% 12%, rgba(255,213,77,.34), transparent 28%),
+    radial-gradient(circle at 92% 84%, rgba(255,122,0,.28), transparent 30%),
+    linear-gradient(145deg, #940512 0%, #d61420 48%, #ff7a00 100%);
+}
+.auth-gate.hidden { display: none; }
+.auth-card {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border-radius: 30px;
+  background: rgba(255,255,255,.98);
+  box-shadow: 0 26px 90px rgba(61,0,8,.38);
+  border: 1px solid rgba(255,255,255,.55);
+  padding: 24px;
+}
+.auth-brand { display:flex; gap:16px; align-items:center; margin-bottom:20px; }
+.auth-brand img { width:82px; height:82px; object-fit:cover; border-radius:22px; box-shadow:0 10px 28px rgba(201,16,26,.22); }
+.auth-brand span { color:#c9101a; font-weight:800; letter-spacing:.04em; text-transform:uppercase; font-size:.78rem; }
+.auth-brand h1 { margin:3px 0 2px; font-size:2rem; color:#1c2028; }
+.auth-brand p { margin:0; color:#667085; }
+.auth-panel { display:grid; gap:14px; }
+.auth-panel[hidden] { display:none; }
+.auth-panel h2 { margin:0; font-size:1.35rem; color:#242833; }
+.auth-panel p { margin:0 0 3px; color:#667085; line-height:1.5; }
+.auth-panel label { display:grid; gap:7px; color:#2f3440; font-weight:700; }
+.auth-panel input,
+.auth-panel textarea {
+  width:100%;
+  border:1px solid #d7dce4;
+  border-radius:15px;
+  padding:13px 14px;
+  background:#fff;
+  color:#171a20;
+  font:inherit;
+  outline:none;
+}
+.auth-panel input:focus,
+.auth-panel textarea:focus { border-color:#d61420; box-shadow:0 0 0 4px rgba(214,20,32,.1); }
+
+.account-shortcuts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.account-shortcuts button{border:1px solid #ead6d7;border-radius:14px;padding:11px 8px;background:#fff8f1;color:#8f111a;font-weight:850;cursor:pointer}
+.account-shortcuts button:active{transform:scale(.98)}
+#app[aria-hidden="true"]{visibility:hidden}
+
+.auth-spinner { width:42px; height:42px; margin:6px auto; border:4px solid #f0d7d9; border-top-color:#c9101a; border-radius:50%; animation:authSpin .8s linear infinite; }
+@keyframes authSpin { to { transform:rotate(360deg); } }
+.text-button { border:0; background:transparent; color:#a40c16; font-weight:800; padding:8px; cursor:pointer; }
+.user-status { border-radius:999px; padding:4px 9px; background:rgba(255,255,255,.14); color:#fff; font-size:.75rem; font-weight:800; white-space:nowrap; }
+.user-status.offline { background:#7b4b00; }
+.user-status.online { background:#126a3a; }
+.user-status.error { background:#7d1018; }
+.side-logout { width:100%; margin-top:10px; border:1px solid rgba(255,255,255,.22); border-radius:13px; padding:10px; background:rgba(255,255,255,.08); color:#fff; font-weight:800; cursor:pointer; }
+.remote-identity-card { display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; }
+.remote-identity-card .role-badge { border-radius:999px; padding:7px 11px; background:#fff1cd; color:#7b4b00; font-weight:900; }
+.connection-pill { display:inline-flex; gap:7px; align-items:center; border-radius:999px; padding:7px 11px; font-size:.8rem; font-weight:800; }
+.connection-pill.online { color:#0c6738; background:#e7f8ee; }
+.connection-pill.offline { color:#825000; background:#fff3d6; }
+.connection-pill.error { color:#9a1320; background:#fdebed; }
+
+@media (max-width: 640px) {
+  .auth-gate { padding:12px; align-items:end; }
+  .auth-card { border-radius:28px 28px 18px 18px; max-height:94dvh; padding:20px; }
+  .auth-brand img { width:70px; height:70px; }
+  .auth-brand h1 { font-size:1.65rem; }
+  .status-strip { gap:7px; }
+  .user-status { max-width:120px; overflow:hidden; text-overflow:ellipsis; }
+}

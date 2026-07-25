@@ -9,13 +9,47 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Good King" />
   <meta name="description" content="Good King - ventas, caja e inventario" />
-  <title>Good King V0.4</title>
+  <title>Good King V0.5</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <section id="authGate" class="auth-gate" aria-live="polite">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="assets/logo.jpg" alt="Good King" />
+        <div><span>Acceso seguro</span><h1>Good King</h1><p id="authMessage">Conecta la aplicación e inicia sesión.</p></div>
+      </div>
+
+      <form id="connectionSetupForm" class="auth-panel" hidden>
+        <h2>Conectar con Supabase</h2>
+        <p>Coloca únicamente la URL del proyecto y la clave pública publishable/anon.</p>
+        <label>URL del proyecto<input id="authSupabaseUrl" type="url" placeholder="https://xxxx.supabase.co" required /></label>
+        <label>Clave pública<textarea id="authSupabaseKey" rows="4" autocomplete="off" spellcheck="false" required></textarea></label>
+        <button type="submit" class="primary-action">Guardar conexión</button>
+      </form>
+
+      <form id="loginForm" class="auth-panel" hidden>
+        <h2>Iniciar sesión</h2>
+        <div class="account-shortcuts"><button type="button" data-login-email="goodking.bo@gmail.com">Administrador</button><button type="button" data-login-email="gloria.msg27@gmail.com">Propietaria</button></div>
+        <label>Correo electrónico<input id="loginEmail" type="email" autocomplete="username" required /></label>
+        <label>Contraseña<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+        <button id="loginBtn" type="submit" class="primary-action">Ingresar</button>
+        <button id="offlineAccessBtn" type="button" class="button-light" hidden>Continuar sin conexión</button>
+        <button id="changeConnectionBtn" type="button" class="text-button">Ver datos de conexión</button>
+        <div id="loginResult" class="connection-result">Usa uno de los usuarios creados en Supabase.</div>
+      </form>
+
+      <div id="authLoadingPanel" class="auth-panel">
+        <div class="auth-spinner"></div>
+        <h2>Preparando Good King</h2>
+        <p>Verificando sesión, negocio y dispositivo…</p>
+      </div>
+    </div>
+  </section>
+
   <div id="app" class="app-shell">
     <header class="topbar">
       <button id="menuBtn" class="top-icon" aria-label="Abrir menú">☰</button>
@@ -33,6 +67,7 @@
       <span id="syncStatus">● Iniciando almacenamiento…</span>
       <span id="storageStatus">Protección: verificando</span>
       <span id="clockText"></span>
+      <span id="userStatus" class="user-status">Usuario local</span>
       <button id="installAppBtn" class="status-action" hidden>Instalar app</button>
       <button id="updateAppBtn" class="status-action update" hidden>Actualizar</button>
     </div>
@@ -126,11 +161,11 @@
     <aside id="sideMenu" class="side-menu">
       <div class="side-header">
         <img src="assets/logo.jpg" alt="Good King" />
-        <div><strong>Good King</strong><span>Panel administrativo</span></div>
+        <div><strong>Good King</strong><span id="sideUserText">Panel administrativo</span></div>
         <button id="closeMenuBtn" aria-label="Cerrar menú">×</button>
       </div>
       <div id="sideLinks" class="side-links"></div>
-      <div class="side-footer"><span>V0.4 · Instalación estable y conexión remota</span></div>
+      <div class="side-footer"><span>V0.5 · Acceso autenticado y sincronización real</span><button id="logoutBtn" class="side-logout" hidden>Cerrar sesión</button></div>
     </aside>
     <div id="menuBackdrop" class="backdrop"></div>
 
@@ -267,6 +302,8 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0"></script>
   <script src="app.js"></script>
 </body>
 </html>
