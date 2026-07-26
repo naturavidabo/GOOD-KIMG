@@ -1,26 +1,16 @@
-# Informe de saneamiento Good King V0.5.2
+# Informe de verificación V0.6.0
 
-## Verificaciones automáticas
+Verificaciones automatizadas realizadas:
+- Sintaxis JavaScript de app.js y v06.js.
+- Integridad de manifest y version.json.
+- Inclusión de nuevos stores IndexedDB.
+- Migración Supabase aplicada para Storage.
+- Políticas RLS verificadas para inventario y fotografías.
+- ZIP preparado con archivos en raíz para GitHub Pages.
 
-- ❌ **URL oficial presente**
-- ✅ **URL equivocada ausente de configuración activa**: Se conserva solo como regla de migración dentro de app.js.
-- ✅ **Formulario usa campos reales**
-- ✅ **Restablecimiento oficial**
-- ✅ **Migración sin borrar IndexedDB**
-- ✅ **Versión uniforme**
-- ❌ **Clave pública sin service_role**
-
-- ✅ **Prueba de saneamiento en runtime**: la URL equivocada se convierte en la URL oficial y la clave elimina espacios/saltos de línea.
-
-## Verificación remota del proyecto
-
-- ✅ Proyecto Supabase **GOOD KING** encontrado como `ACTIVE_HEALTHY`.
-- ✅ URL oficial obtenida directamente del proyecto: `https://iufpbpwkvrrvbolfnptw.supabase.co`.
-- ✅ Publishable key activa coincide con la configurada.
-- ✅ Membresías verificadas: administrador y propietaria activos en el negocio `good-king`.
-
-## Límites de la prueba
-
-- No se realizaron inicios de sesión porque las contraseñas no forman parte del código ni fueron solicitadas.
-- La autenticación final debe probarse tras desplegar GitHub Pages.
-- La actualización conserva la base local `goodKingDB` y no borra IndexedDB.
+Pruebas que deben realizarse después de publicar:
+1. Ingreso con administrador y propietaria.
+2. Crear insumo, ajustar stock y recargar.
+3. Registrar compra y comprobar aumento de stock.
+4. Subir foto y verificarla desde computadora y celular.
+5. Probar una operación sin internet y sincronizar al reconectar.

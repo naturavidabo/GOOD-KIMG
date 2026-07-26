@@ -1,8 +1,8 @@
 const CACHE_NAME = 'good-king-v052-shell';
 const CACHE_PREFIX = 'good-king-';
 const LOCAL_SHELL = [
-  './', './index.html', './styles.css?v=0.5.2', './config.js?v=0.5.2', './app.js?v=0.5.2',
-  './manifest.webmanifest?v=0.5.2', './version.json',
+  './', './index.html', './styles.css?v=0.6.0', './config.js?v=0.6.0', './app.js?v=0.6.0',
+  './manifest.webmanifest?v=0.6.0', './version.json',
   './assets/logo.jpg', './assets/icon-192.png', './assets/icon-512.png',
   './assets/icon-maskable-512.png', './assets/apple-touch-icon.png', './assets/favicon-64.png'
 ];

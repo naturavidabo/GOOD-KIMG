@@ -1,7 +1,5 @@
 {
-  "app": "Good King",
-  "version": "0.5.2",
-  "build": "2026-07-26-supabase-url-sanitized",
-  "minimumDbVersion": 4,
-  "projectRef": "iufpbpwkvrrvbolfnptw"
+  "version": "0.6.0",
+  "build": "2026-07-26-inventory",
+  "notes": "Inventario, compras y fotografías de productos"
 }

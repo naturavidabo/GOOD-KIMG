@@ -1,30 +1,15 @@
-# Good King V0.5.2
+# Good King V0.6.0
 
-Versión saneada de conexión y actualización.
+Versión funcional con inventario, compras rápidas y fotografías de productos.
 
-## Corrección principal
-
-La V0.5/V0.5.1 apuntaba por error a:
-
-`https://iufpbpwkvnvbolfnptw.supabase.co`
-
-El proyecto real y activo de Good King es:
-
-`https://iufpbpwkvrrvbolfnptw.supabase.co`
-
-La V0.5.2 migra automáticamente la configuración local equivocada y conserva toda la base IndexedDB.
+## Funciones nuevas
+- Crear y editar insumos.
+- Definir unidad de compra, unidad de control, conversión, stock mínimo y costo promedio.
+- Conteo físico, ingreso, salida y merma con auditoría.
+- Registrar compras y aumentar el stock automáticamente.
+- Cargar fotografías de productos a Supabase Storage.
+- Sincronización local-first con IndexedDB y Supabase.
+- Migración IndexedDB V4 → V5 sin borrar información.
 
 ## Publicación
-
-1. Descomprime el ZIP.
-2. Sustituye todos los archivos de la raíz del repositorio.
-3. No borres datos del sitio ni IndexedDB.
-4. Espera el despliegue de GitHub Pages.
-5. Abre la app y usa **Buscar actualización** o **Reparar actualización** si el celular conserva una versión anterior.
-
-## Accesos configurados
-
-- Administrador: `goodking.bo@gmail.com`
-- Propietaria: `gloria.msg27@gmail.com`
-
-Las contraseñas siguen siendo las creadas en Supabase y no están incluidas en el código.
+Reemplaza todos los archivos en GitHub Pages. No borres datos del sitio.

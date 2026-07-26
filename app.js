@@ -1,7 +1,7 @@
 'use strict';
 
 const APP_ID = 'good-king';
-const APP_VERSION = '0.5.2';
+const APP_VERSION = '0.6.0';
 const PUBLIC_CONFIG = window.GOOD_KING_CONFIG || {};
 const OFFICIAL_SUPABASE_URL = String(PUBLIC_CONFIG.supabaseUrl || '').trim();
 const OFFICIAL_SUPABASE_PUBLISHABLE_KEY = String(PUBLIC_CONFIG.supabasePublishableKey || '').replace(/\s+/g,'');
@@ -11,11 +11,11 @@ let runtimeSupabaseConfig = {url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE
 const ADMIN_EMAIL = PUBLIC_CONFIG.administratorEmail || 'goodking.bo@gmail.com';
 const OWNER_EMAIL = PUBLIC_CONFIG.ownerEmail || 'gloria.msg27@gmail.com';
 const DB_NAME = 'goodKingDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const VERSION_ENDPOINT = './version.json';
 const NETWORK_TIMEOUT_MS = 12000;
-const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots'];
-const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots'];
+const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal'];
+const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal'];
 const moneyFormatter = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const DEFAULT_PRODUCTS = [
@@ -1869,7 +1869,7 @@ async function renderModule(key) {
   } else {
     body = `<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${escapeHTML(module[3])}</p><strong>No se habilitarán botones ficticios.</strong></div><div class="module-card"><h3>Persistencia local</h3><p>El módulo utilizará IndexedDB y movimientos auditables.</p><strong>Base local y remota estabilizada en V0.5</strong></div><div class="module-card"><h3>Sincronización autenticada</h3><p>Los cambios se guardan primero localmente y después se envían a Supabase.</p><strong>Sin depender de internet para operar</strong></div></div>`;
   }
-  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.5.1</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
+  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.6.0</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
 
   $('moduleContent').querySelectorAll('.reprint-sale').forEach(button => button.onclick = async () => {
     const sale = await getRecord('sales', button.dataset.id);
@@ -1906,7 +1906,7 @@ async function registerServiceWorker() {
     return;
   }
   try {
-    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.5.1', { scope:'./', updateViaCache:'none' });
+    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.6.0', { scope:'./', updateViaCache:'none' });
     if (swRegistration.waiting) revealUpdateReady(swRegistration);
     swRegistration.addEventListener('updatefound', () => {
       const worker = swRegistration.installing;
