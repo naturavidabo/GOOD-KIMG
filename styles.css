@@ -103,3 +103,6 @@
 .auth-support-actions button{min-height:44px}
 #authDiagnosticResult{margin-top:10px}
 @media(max-width:520px){.auth-support-actions{grid-template-columns:1fr}.auth-support-actions .text-button{grid-column:auto}.auth-card{max-height:calc(100dvh - 24px)}}
+
+/* V0.5.2 · saneamiento de conexión */
+.connection-actions{flex-wrap:wrap}.connection-actions .text-button{flex:1 1 100%;order:3}.form-dialog label small{display:block;margin-top:6px;color:#6c6670;font-size:.78rem;line-height:1.35}.connection-result.success{border-color:#79c89a;background:#edf9f1;color:#17653a}.connection-result.error{border-color:#f3b1b1;background:#fff0f0;color:#b10f1a}

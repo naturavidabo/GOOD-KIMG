@@ -1,23 +1,26 @@
-# Good King V0.5.1 — Informe de saneamiento
+# Informe de saneamiento Good King V0.5.2
 
 ## Verificaciones automáticas
-- Sintaxis JavaScript validada con `node --check`.
-- Manifest y `version.json` validados como JSON.
-- IDs HTML revisados sin duplicados.
-- Referencias críticas de archivos verificadas.
-- Service Worker actualizado a caché `good-king-v051-shell`.
-- IndexedDB mantiene `DB_VERSION = 4`; no se eliminan ni recrean almacenes.
 
-## Correcciones aplicadas
-- Eliminado el encabezado personalizado `x-application-name` del cliente Supabase.
-- Prueba de conexión cambiada a `/auth/v1/health` usando únicamente `apikey`.
-- Diagnóstico con timeout y mensajes diferenciados.
-- Inicio de sesión alternativo por REST si el SDK devuelve error de red.
-- Verificación de versión mediante `version.json` sin caché.
-- Botones de actualización en pantalla de acceso y Configuración.
-- Reparación de actualización sin borrar IndexedDB.
+- ❌ **URL oficial presente**
+- ✅ **URL equivocada ausente de configuración activa**: Se conserva solo como regla de migración dentro de app.js.
+- ✅ **Formulario usa campos reales**
+- ✅ **Restablecimiento oficial**
+- ✅ **Migración sin borrar IndexedDB**
+- ✅ **Versión uniforme**
+- ❌ **Clave pública sin service_role**
 
-## Pruebas que requieren publicación real
-- Inicio de sesión contra el proyecto Supabase del usuario.
-- Actualización desde PWA V0.4/V0.5 instalada en Android.
-- Sincronización real bajo RLS.
+- ✅ **Prueba de saneamiento en runtime**: la URL equivocada se convierte en la URL oficial y la clave elimina espacios/saltos de línea.
+
+## Verificación remota del proyecto
+
+- ✅ Proyecto Supabase **GOOD KING** encontrado como `ACTIVE_HEALTHY`.
+- ✅ URL oficial obtenida directamente del proyecto: `https://iufpbpwkvrrvbolfnptw.supabase.co`.
+- ✅ Publishable key activa coincide con la configurada.
+- ✅ Membresías verificadas: administrador y propietaria activos en el negocio `good-king`.
+
+## Límites de la prueba
+
+- No se realizaron inicios de sesión porque las contraseñas no forman parte del código ni fueron solicitadas.
+- La autenticación final debe probarse tras desplegar GitHub Pages.
+- La actualización conserva la base local `goodKingDB` y no borra IndexedDB.

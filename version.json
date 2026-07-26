@@ -1,6 +1,7 @@
 {
   "app": "Good King",
-  "version": "0.5.1",
-  "build": "2026-07-25-connection-update-fix",
-  "minimumDbVersion": 4
+  "version": "0.5.2",
+  "build": "2026-07-26-supabase-url-sanitized",
+  "minimumDbVersion": 4,
+  "projectRef": "iufpbpwkvrrvbolfnptw"
 }

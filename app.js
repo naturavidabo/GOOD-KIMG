@@ -1,10 +1,13 @@
 'use strict';
 
 const APP_ID = 'good-king';
-const APP_VERSION = '0.5.1';
+const APP_VERSION = '0.5.2';
 const PUBLIC_CONFIG = window.GOOD_KING_CONFIG || {};
-const SUPABASE_URL = PUBLIC_CONFIG.supabaseUrl || '';
-const SUPABASE_PUBLISHABLE_KEY = PUBLIC_CONFIG.supabasePublishableKey || '';
+const OFFICIAL_SUPABASE_URL = String(PUBLIC_CONFIG.supabaseUrl || '').trim();
+const OFFICIAL_SUPABASE_PUBLISHABLE_KEY = String(PUBLIC_CONFIG.supabasePublishableKey || '').replace(/\s+/g,'');
+const OFFICIAL_SUPABASE_PROJECT_REF = PUBLIC_CONFIG.supabaseProjectRef || 'iufpbpwkvrrvbolfnptw';
+const LEGACY_WRONG_SUPABASE_URLS = new Set(['https://iufpbpwkvnvbolfnptw.supabase.co']);
+let runtimeSupabaseConfig = {url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true};
 const ADMIN_EMAIL = PUBLIC_CONFIG.administratorEmail || 'goodking.bo@gmail.com';
 const OWNER_EMAIL = PUBLIC_CONFIG.ownerEmail || 'gloria.msg27@gmail.com';
 const DB_NAME = 'goodKingDB';
@@ -73,6 +76,7 @@ let updateReady = false;
 let reloadAfterUpdate = false;
 let currentModuleKey = 'sales';
 let supabaseClient = null;
+let supabaseClientSignature = '';
 let authSession = null;
 let authContext = null;
 let authSubscription = null;
@@ -1147,18 +1151,19 @@ function isFetchFailure(error) {
 }
 
 function friendlyConnectionError(error) {
-  if (error?.name === 'AbortError') return 'Supabase no respondió dentro de 12 segundos. Revisa la conexión o el estado del proyecto.';
-  if (isFetchFailure(error)) return 'No se pudo llegar al dominio de Supabase. Revisa internet, DNS, VPN, antivirus o extensiones del navegador.';
+  if (error?.name === 'AbortError') return `Supabase no respondió dentro de 12 segundos. Proyecto: ${runtimeSupabaseConfig.projectRef || OFFICIAL_SUPABASE_PROJECT_REF}.`;
+  if (isFetchFailure(error)) return `No se pudo llegar a ${activeSupabaseUrl()}. Usa “Restablecer conexión oficial” y vuelve a probar.`;
   return String(error?.message || error || 'Error de conexión desconocido.');
 }
 
 async function checkSupabaseHealth() {
-  const url = normalizeSupabaseUrl(SUPABASE_URL);
-  if (!url || !SUPABASE_PUBLISHABLE_KEY) throw new Error('La URL o la clave pública de Supabase no están configuradas.');
+  const url = activeSupabaseUrl();
+  const key = activeSupabaseKey();
+  if (!url || !key) throw new Error('La URL o la clave pública de Supabase no están configuradas.');
   const startedAt = performance.now();
   const response = await fetchWithTimeout(`${url}/auth/v1/health`, {
     method:'GET',
-    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,Accept:'application/json'}
+    headers:{apikey:key,Accept:'application/json'}
   });
   const text = await response.text();
   let payload = null;
@@ -1168,10 +1173,11 @@ async function checkSupabaseHealth() {
 }
 
 async function directPasswordLogin(email, password) {
-  const url = normalizeSupabaseUrl(SUPABASE_URL);
+  const url = activeSupabaseUrl();
+  const key = activeSupabaseKey();
   const response = await fetchWithTimeout(`${url}/auth/v1/token?grant_type=password`, {
     method:'POST',
-    headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'Content-Type':'application/json',Accept:'application/json'},
+    headers:{apikey:key,'Content-Type':'application/json',Accept:'application/json'},
     body:JSON.stringify({email,password})
   });
   const payload = await response.json().catch(()=>({}));
@@ -1197,7 +1203,7 @@ async function runConnectionDiagnostic({showToast=true} = {}) {
     const message = friendlyConnectionError(error);
     if (target) { target.textContent=message; target.className='connection-result error'; }
     if (showToast) toast(message,6200);
-    await logAppError('supabase-health',error,{url:SUPABASE_URL});
+    await logAppError('supabase-health',error,{url:activeSupabaseUrl(),projectRef:runtimeSupabaseConfig.projectRef});
     throw error;
   }
 }
@@ -1267,17 +1273,26 @@ async function forceAppRefresh() {
 
 async function seedSupabaseConfig() {
   const current = await getRecord('settings','supabase-config');
-  if (!current?.value?.url || !current?.value?.anonKey) {
-    await putRecord('settings', {id:'supabase-config', value:{url:SUPABASE_URL,anonKey:SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true,updatedAt:nowIso()}, updatedAt:nowIso()});
-  }
+  const normalized = normalizeSupabaseConfig(current?.value || {url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true});
+  // Saneamiento V0.5.2: corrige la URL mal escrita de V0.5/V0.5.1 sin borrar una configuración futura válida.
+  const originalUrl = String(current?.value?.url || '').trim().replace(/\/+$/, '');
+  const wasWrong = !originalUrl || LEGACY_WRONG_SUPABASE_URLS.has(originalUrl);
+  const finalConfig = wasWrong ? normalizeSupabaseConfig({...normalized,url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE_PUBLISHABLE_KEY,managed:true,migratedFromBadUrl:Boolean(originalUrl),migratedAt:nowIso()}) : normalized;
+  setRuntimeSupabaseConfig(finalConfig);
+  const changed = !current || current.value?.url !== finalConfig.url || normalizeSupabaseKey(current.value?.anonKey) !== finalConfig.anonKey || Boolean(current.value?.enabled) !== Boolean(finalConfig.enabled);
+  if (changed) await putRecord('settings', {id:'supabase-config', value:{...finalConfig,updatedAt:nowIso()}, updatedAt:nowIso()});
+  return finalConfig;
 }
 
 function createSupabaseClient() {
-  if (supabaseClient) return supabaseClient;
+  const config = validateSupabaseConfig(runtimeSupabaseConfig);
+  const signature = `${config.url}|${config.anonKey}`;
+  if (supabaseClient && supabaseClientSignature === signature) return supabaseClient;
   if (!window.supabase?.createClient) throw new Error('No se pudo cargar el cliente de Supabase. Comprueba la conexión y vuelve a abrir Good King.');
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'good-king-auth-v05'}
+  supabaseClient = window.supabase.createClient(config.url, config.anonKey, {
+    auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'good-king-auth-v052'}
   });
+  supabaseClientSignature = signature;
   return supabaseClient;
 }
 
@@ -1538,50 +1553,117 @@ async function pullRemoteCoreData() {
   return {pulled};
 }
 
-async function getSupabaseConfig() {
-  return (await getRecord('settings', 'supabase-config'))?.value || { url:SUPABASE_URL, anonKey:SUPABASE_PUBLISHABLE_KEY, enabled:true, lastTest:null, managed:true };
+function normalizeSupabaseUrl(url) {
+  let value = String(url || '').trim().replace(/\s+/g,'').replace(/\/+$/, '');
+  if (LEGACY_WRONG_SUPABASE_URLS.has(value)) value = OFFICIAL_SUPABASE_URL;
+  return value;
 }
 
-function normalizeSupabaseUrl(url) {
-  return String(url || '').trim().replace(/\/+$/, '');
+function normalizeSupabaseKey(key) {
+  return String(key || '').replace(/\s+/g,'').trim();
+}
+
+function normalizeSupabaseConfig(raw = {}) {
+  const url = normalizeSupabaseUrl(raw.url || OFFICIAL_SUPABASE_URL);
+  const anonKey = normalizeSupabaseKey(raw.anonKey || raw.publishableKey || OFFICIAL_SUPABASE_PUBLISHABLE_KEY);
+  let projectRef = '';
+  try { projectRef = new URL(url).hostname.split('.')[0] || ''; } catch (_) {}
+  return {
+    ...raw,
+    url,
+    anonKey,
+    enabled: raw.enabled !== false,
+    managed: raw.managed !== false,
+    projectRef
+  };
+}
+
+function validateSupabaseConfig(config) {
+  const normalized = normalizeSupabaseConfig(config);
+  if (!normalized.url || !normalized.anonKey) throw new Error('Completa la URL y la clave pública.');
+  let parsed;
+  try { parsed = new URL(normalized.url); } catch (_) { throw new Error('La URL de Supabase no tiene un formato válido.'); }
+  if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('.supabase.co')) throw new Error('La URL debe ser HTTPS y terminar en .supabase.co.');
+  if (!(normalized.anonKey.startsWith('sb_publishable_') || normalized.anonKey.split('.').length === 3)) throw new Error('La clave no parece una publishable key ni una anon key válida.');
+  return normalized;
+}
+
+function setRuntimeSupabaseConfig(config, {resetClient=true} = {}) {
+  runtimeSupabaseConfig = normalizeSupabaseConfig(config);
+  if (resetClient) {
+    supabaseClient = null;
+    supabaseClientSignature = '';
+    remoteCategoryMap = null;
+  }
+  return runtimeSupabaseConfig;
+}
+
+function activeSupabaseUrl() {
+  return normalizeSupabaseUrl(runtimeSupabaseConfig.url || OFFICIAL_SUPABASE_URL);
+}
+
+function activeSupabaseKey() {
+  return normalizeSupabaseKey(runtimeSupabaseConfig.anonKey || OFFICIAL_SUPABASE_PUBLISHABLE_KEY);
+}
+
+async function getSupabaseConfig() {
+  const stored = (await getRecord('settings', 'supabase-config'))?.value;
+  const normalized = normalizeSupabaseConfig(stored || runtimeSupabaseConfig || {url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true});
+  setRuntimeSupabaseConfig(normalized,{resetClient:false});
+  return normalized;
 }
 
 async function testSupabaseConnection(config = null) {
-  const current = config || await getSupabaseConfig();
-  const url = normalizeSupabaseUrl(current.url);
-  const key = String(current.anonKey || '').trim();
-  if (!url || !key) throw new Error('Completa la URL y la clave pública.');
+  const normalized = validateSupabaseConfig(config || await getSupabaseConfig());
   const startedAt=performance.now();
-  const response = await fetchWithTimeout(`${url}/auth/v1/health`, {
-    method:'GET', headers:{apikey:key,Accept:'application/json'}
+  const response = await fetchWithTimeout(`${normalized.url}/auth/v1/health`, {
+    method:'GET', headers:{apikey:normalized.anonKey,Accept:'application/json'}
   });
-  const payload=await response.json().catch(()=>({}));
-  if (!response.ok) throw new Error(`Supabase respondió ${response.status}: ${payload?.message || payload?.msg || 'verifica URL y clave'}.`);
-  return {ok:true,checkedAt:nowIso(),status:response.status,latencyMs:Math.round(performance.now()-startedAt),version:payload?.version || null};
+  const text = await response.text();
+  let payload={};
+  try { payload=text?JSON.parse(text):{}; } catch (_) { payload={raw:text.slice(0,240)}; }
+  if (!response.ok) throw new Error(`Supabase respondió HTTP ${response.status}: ${payload?.message || payload?.msg || 'verifica URL y clave'}.`);
+  return {ok:true,checkedAt:nowIso(),status:response.status,latencyMs:Math.round(performance.now()-startedAt),version:payload?.version || null,projectRef:normalized.projectRef,url:normalized.url};
 }
 
 async function saveSupabaseConfig(event) {
   event.preventDefault();
-  const config = {
-    url:SUPABASE_URL, anonKey:SUPABASE_PUBLISHABLE_KEY,
-    enabled:$('supabaseEnabled').checked, updatedAt:nowIso(), lastTest:(await getSupabaseConfig()).lastTest || null
-  };
-  if (config.enabled && (!config.url || !config.anonKey)) return toast('Para activar sincronización completa URL y clave.');
+  const previous = await getSupabaseConfig();
+  let config;
+  try {
+    config = validateSupabaseConfig({
+      ...previous,
+      url:$('supabaseUrl').value,
+      anonKey:$('supabaseAnonKey').value,
+      enabled:$('supabaseEnabled').checked,
+      managed:false,
+      updatedAt:nowIso()
+    });
+    if (config.enabled) config.lastTest = await testSupabaseConnection(config);
+  } catch (error) {
+    $('supabaseTestResult').textContent=friendlyConnectionError(error);
+    $('supabaseTestResult').className='connection-result error';
+    await logAppError('supabase-config-save',error,{url:normalizeSupabaseUrl($('supabaseUrl').value)});
+    return toast(`No se guardó la conexión: ${friendlyConnectionError(error)}`,6200);
+  }
+  setRuntimeSupabaseConfig(config);
   await putRecord('settings', {id:'supabase-config', value:config, updatedAt:nowIso()});
-  await writeAudit('supabase_config_updated','settings','supabase-config',{enabled:config.enabled,url:config.url});
+  await writeAudit('supabase_config_updated','settings','supabase-config',{enabled:config.enabled,url:config.url,projectRef:config.projectRef});
   $('supabaseDialog').close();
   await refreshStatus();
-  await renderModule('settings');
-  toast('Configuración de Supabase guardada.');
-  if (config.enabled && navigator.onLine) syncPendingRecords().catch(console.error);
+  if (authContext) await renderModule('settings');
+  toast('Conexión de Supabase guardada y verificada.');
+  if (config.enabled && navigator.onLine && authContext) syncPendingRecords().catch(console.error);
 }
 
 async function openSupabaseDialog() {
   const config = await getSupabaseConfig();
-  $('supabaseUrl').value = SUPABASE_URL;
-  $('supabaseAnonKey').value = SUPABASE_PUBLISHABLE_KEY;
+  $('supabaseUrl').value = config.url;
+  $('supabaseAnonKey').value = config.anonKey;
   $('supabaseEnabled').checked = Boolean(config.enabled);
-  $('supabaseTestResult').textContent = config.lastTest?.ok ? `Última prueba correcta: ${new Date(config.lastTest.checkedAt).toLocaleString('es-BO')}` : 'Todavía no se probó la conexión.';
+  $('supabaseProjectHint').textContent = `Proyecto detectado: ${config.projectRef || 'sin referencia'} · Oficial: ${OFFICIAL_SUPABASE_PROJECT_REF}`;
+  $('supabaseTestResult').textContent = config.lastTest?.ok ? `Última prueba correcta: ${new Date(config.lastTest.checkedAt).toLocaleString('es-BO')} · HTTP ${config.lastTest.status}` : 'Todavía no se probó la conexión guardada.';
+  $('supabaseTestResult').className = config.lastTest?.ok ? 'connection-result success' : 'connection-result';
   $('supabaseDialog').showModal();
 }
 
@@ -1589,22 +1671,44 @@ async function handleSupabaseTest() {
   const button = $('testSupabaseBtn');
   const result = $('supabaseTestResult');
   button.disabled = true;
-  result.textContent = 'Probando conexión…';
+  result.textContent = 'Validando URL, clave y servicio Auth…';
+  result.className='connection-result';
   try {
-    const config = {url:SUPABASE_URL,anonKey:SUPABASE_PUBLISHABLE_KEY};
+    const config = validateSupabaseConfig({url:$('supabaseUrl').value,anonKey:$('supabaseAnonKey').value,enabled:$('supabaseEnabled').checked});
     const test = await testSupabaseConnection(config);
-    const stored = await getSupabaseConfig();
-    stored.lastTest = test;
-    stored.url = normalizeSupabaseUrl(config.url);
-    stored.anonKey = config.anonKey.trim();
-    await putRecord('settings',{id:'supabase-config',value:stored,updatedAt:nowIso()});
-    result.textContent = 'Conexión correcta con Supabase.';
+    result.textContent = `Conexión correcta · proyecto ${test.projectRef} · HTTP ${test.status} · ${test.latencyMs} ms.`;
     result.className = 'connection-result success';
   } catch (error) {
-    result.textContent = error.name === 'AbortError' ? 'La prueba superó el tiempo de espera.' : error.message;
+    result.textContent = friendlyConnectionError(error);
     result.className = 'connection-result error';
-    await logAppError('supabase-test', error);
+    await logAppError('supabase-test', error,{url:normalizeSupabaseUrl($('supabaseUrl').value)});
   } finally { button.disabled = false; }
+}
+
+async function resetOfficialSupabaseConfig() {
+  const config = normalizeSupabaseConfig({url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true,resetAt:nowIso()});
+  $('supabaseUrl').value=config.url;
+  $('supabaseAnonKey').value=config.anonKey;
+  $('supabaseEnabled').checked=true;
+  $('supabaseProjectHint').textContent=`Proyecto oficial restaurado: ${OFFICIAL_SUPABASE_PROJECT_REF}`;
+  $('supabaseTestResult').textContent='Conexión oficial cargada. Presiona Probar conexión o Guardar configuración.';
+  $('supabaseTestResult').className='connection-result';
+  toast('Se restauró la URL oficial de Good King.');
+}
+
+async function saveAuthConnectionSetup(event) {
+  event.preventDefault();
+  try {
+    const config=validateSupabaseConfig({url:$('authSupabaseUrl').value,anonKey:$('authSupabaseKey').value,enabled:true,managed:false});
+    config.lastTest=await testSupabaseConnection(config);
+    setRuntimeSupabaseConfig(config);
+    await putRecord('settings',{id:'supabase-config',value:{...config,updatedAt:nowIso()},updatedAt:nowIso()});
+    setAuthPanel('loginForm');
+    $('loginResult').textContent='Conexión guardada. Ya puedes iniciar sesión.';
+    $('loginResult').className='connection-result success';
+  } catch(error) {
+    $('authMessage').textContent=friendlyConnectionError(error);
+  }
 }
 
 async function syncPendingRecords() {
@@ -1844,6 +1948,7 @@ function setupBroadcastChannel() {
 async function init() {
   await openDB();
   await ensureMetadata();
+  await seedSupabaseConfig();
   await ensureDefaultCatalog();
   await prepareV05MigrationQueue();
   await getDeviceId();
@@ -1896,6 +2001,7 @@ async function init() {
   $('productForm').onsubmit = saveProduct;
   $('dismissProduct').onclick = $('cancelProduct').onclick = () => $('productDialog').close();
   $('supabaseForm').onsubmit = saveSupabaseConfig;
+  $('connectionSetupForm').onsubmit = saveAuthConnectionSetup;
   $('loginForm').onsubmit = handleLogin;
   $('offlineAccessBtn').onclick = continueOffline;
   $('logoutBtn').onclick = logoutUser;
@@ -1905,6 +2011,7 @@ async function init() {
   $('authForceUpdateBtn').onclick = forceAppRefresh;
   document.querySelectorAll('[data-login-email]').forEach(button => button.onclick = () => { $('loginEmail').value = button.dataset.loginEmail; $('loginPassword').focus(); });
   $('dismissSupabase').onclick = () => $('supabaseDialog').close();
+  $('resetSupabaseBtn').onclick = resetOfficialSupabaseConfig;
   $('testSupabaseBtn').onclick = handleSupabaseTest;
   $('backToSales').onclick = () => navigate('sales');
   setupSegment('orderTypeGroup', value => orderType = value);

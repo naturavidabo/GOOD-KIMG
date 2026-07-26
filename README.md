@@ -1,15 +1,30 @@
-# Good King V0.5.1
+# Good King V0.5.2
 
-Versión correctiva de conexión y actualización.
+Versión saneada de conexión y actualización.
 
-## Correcciones principales
-- Se eliminó el encabezado HTTP personalizado que podía provocar bloqueo CORS y `Failed to fetch` al iniciar sesión.
-- La prueba de Supabase usa `/auth/v1/health` con el encabezado `apikey`, compatible con claves publishable.
-- Inicio de sesión con diagnóstico de red y alternativa REST controlada.
-- Botones visibles para buscar y reparar actualizaciones desde el acceso y desde Configuración.
-- `version.json` y verificación de versión publicada sin caché.
-- Service Worker V0.5.1 con actualización de archivos críticos mediante red primero.
-- La reparación de actualización no elimina IndexedDB ni los datos del negocio.
+## Corrección principal
+
+La V0.5/V0.5.1 apuntaba por error a:
+
+`https://iufpbpwkvnvbolfnptw.supabase.co`
+
+El proyecto real y activo de Good King es:
+
+`https://iufpbpwkvrrvbolfnptw.supabase.co`
+
+La V0.5.2 migra automáticamente la configuración local equivocada y conserva toda la base IndexedDB.
 
 ## Publicación
-Subir todos los archivos a la raíz del repositorio de GitHub Pages. No borrar datos del sitio.
+
+1. Descomprime el ZIP.
+2. Sustituye todos los archivos de la raíz del repositorio.
+3. No borres datos del sitio ni IndexedDB.
+4. Espera el despliegue de GitHub Pages.
+5. Abre la app y usa **Buscar actualización** o **Reparar actualización** si el celular conserva una versión anterior.
+
+## Accesos configurados
+
+- Administrador: `goodking.bo@gmail.com`
+- Propietaria: `gloria.msg27@gmail.com`
+
+Las contraseñas siguen siendo las creadas en Supabase y no están incluidas en el código.
