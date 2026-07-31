@@ -1,8 +1,8 @@
 /* app-update.js — actualización visible y controlada para GitHub Pages/PWA. */
 
 (() => {
-  const CURRENT_VERSION = '8.2.8';
-  const BUILD_ID = '2026-07-31-v828-asistente-operativo-contraste-saneamiento-funcional';
+  const CURRENT_VERSION = '8.2.9';
+  const BUILD_ID = '2026-07-31-v829-asistente-operativo-contraste-saneamiento-funcional';
   let registration = null;
   let updateAvailable = false;
   let updateRequested = false;
@@ -66,7 +66,7 @@
 
   async function installAppUpdateManager() {
     if (!('serviceWorker' in navigator)) return { ok: false, unsupported: true };
-    registration = await navigator.serviceWorker.register('./service-worker.js?v=8.2.8', { updateViaCache: 'none' });
+    registration = await navigator.serviceWorker.register('./service-worker.js?v=8.2.9', { updateViaCache: 'none' });
     watchRegistration(registration);
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!updateRequested) return;

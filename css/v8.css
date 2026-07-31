@@ -370,7 +370,7 @@
 @media(max-width:480px){.nv825PlanHeader{grid-template-columns:1fr}.nv825PlanHeader>div:last-child{text-align:left}.nv825Installment{grid-template-columns:1fr}.nv825Installment>div:last-child{text-align:left}}
 
 /* ======================================================================
-   NATURA VIDA V8.2.8 — PAGOS CLAROS, PRECIO MANUAL Y ASISTENTE CON VOZ
+   NATURA VIDA V8.2.9 — PAGOS CLAROS, PRECIO MANUAL Y ASISTENTE CON VOZ
    ====================================================================== */
 /* El naranja identifica únicamente el valor intervenido manualmente. */
 .v826PriceReferenceGrid>div{border-color:#d9e8df!important;background:linear-gradient(145deg,#f7fcf9,#eef7f2)!important;box-shadow:none!important}
@@ -393,7 +393,7 @@
 @media(max-width:560px){.nv826PaymentChoices{grid-template-columns:1fr}.nv826PaymentChoices button{grid-template-columns:32px minmax(0,1fr);justify-items:start;text-align:left}.nv826PaymentChoices button small{grid-column:2}.nv826QrStage{grid-template-columns:1fr;justify-items:center}.nv826QrStage>div:last-child{text-align:center}.nvAiActionButtonsV826{grid-template-columns:1fr 1fr}.nvAiActionButtonsV826 #nvAiConfirmAction{grid-column:1/-1}.nvAiSpeechToolsV826{align-items:flex-start;flex-direction:column}.nv826PaymentIntro{align-items:flex-start;flex-direction:column}}
 
 /* ======================================================================
-   NATURA VIDA V8.2.8 — ROBOT UNIFICADO, TRABAJOS IA Y RENDICIÓN VERIFICABLE
+   NATURA VIDA V8.2.9 — ROBOT UNIFICADO, TRABAJOS IA Y RENDICIÓN VERIFICABLE
    ====================================================================== */
 /* El SVG ya no usa la clase genérica .fab: toda la cabecita se mueve como un solo botón. */
 .nvAiBotSvg{overflow:visible}
@@ -446,7 +446,7 @@
 }
 
 /* ======================================================================
-   NATURA VIDA V8.2.8 — OPERACIONES IA EJECUTABLES, CONTRASTE Y SANEAMIENTO
+   NATURA VIDA V8.2.9 — OPERACIONES IA EJECUTABLES, CONTRASTE Y SANEAMIENTO
    ====================================================================== */
 /* Las tarjetas claras deben conservar contraste real; las ilustraciones ya no usan blanco sobre blanco. */
 .v802CategoryCard:not(.lime) .v802CategoryArt{border:1px solid rgba(21,83,58,.10);box-shadow:inset 0 0 0 1px rgba(255,255,255,.72)}
@@ -461,35 +461,43 @@
 .v802CategoryCard.slate .v802CategoryArt{background:linear-gradient(145deg,#e4f0ed,#f8fbfa)}
 
 /* Una orden operativa presenta primero el trabajo que se puede revisar, no una explicación interminable. */
-.nvAiActionPanel.readyV828{margin:11px 0 9px;border:1px solid #75bd94;background:linear-gradient(145deg,#edf9f2,#f9fdfb);box-shadow:0 8px 20px rgba(7,99,59,.10)}
-.nvAiActionPanel.readyV828>span{color:#0b7247}
-.nvAiActionGrid button.primaryV828{border-color:#0b8753;background:linear-gradient(145deg,#087447,#13a663);color:#fff;box-shadow:0 8px 18px rgba(5,104,62,.18)}
-.nvAiActionGrid button.primaryV828 b,.nvAiActionGrid button.primaryV828 small{color:#fff}
-.nvAiActionGrid button.primaryV828 small{opacity:.86}
-.nvAiSaleItemsV828{display:grid;gap:9px}
-.nvAiSaleItemEditorV828{display:grid;grid-template-columns:1fr 92px;gap:5px 8px;align-items:end;border:1px solid #d9e8e0;border-radius:13px;background:#fff;padding:9px}
-.nvAiSaleItemEditorV828 label{color:#526d60;font-size:.66rem;font-weight:850}
-.nvAiSaleItemEditorV828 select,.nvAiSaleItemEditorV828 input{width:100%;min-width:0;border:1px solid #cedfd6;border-radius:10px;background:#fff;padding:9px;color:#173f2d;font:inherit}
-.nvAiSaleItemEditorV828 select{grid-column:1}.nvAiSaleItemEditorV828 input{grid-column:2}
+.nvAiActionPanel.readyV829{margin:11px 0 9px;border:1px solid #75bd94;background:linear-gradient(145deg,#edf9f2,#f9fdfb);box-shadow:0 8px 20px rgba(7,99,59,.10)}
+.nvAiActionPanel.readyV829>span{color:#0b7247}
+.nvAiActionGrid button.primaryV829{border-color:#0b8753;background:linear-gradient(145deg,#087447,#13a663);color:#fff;box-shadow:0 8px 18px rgba(5,104,62,.18)}
+.nvAiActionGrid button.primaryV829 b,.nvAiActionGrid button.primaryV829 small{color:#fff}
+.nvAiActionGrid button.primaryV829 small{opacity:.86}
+.nvAiSaleItemsV829{display:grid;gap:9px}
+.nvAiSaleItemEditorV829{display:grid;grid-template-columns:1fr 92px;gap:5px 8px;align-items:end;border:1px solid #d9e8e0;border-radius:13px;background:#fff;padding:9px}
+.nvAiSaleItemEditorV829 label{color:#526d60;font-size:.66rem;font-weight:850}
+.nvAiSaleItemEditorV829 select,.nvAiSaleItemEditorV829 input{width:100%;min-width:0;border:1px solid #cedfd6;border-radius:10px;background:#fff;padding:9px;color:#173f2d;font:inherit}
+.nvAiSaleItemEditorV829 select{grid-column:1}.nvAiSaleItemEditorV829 input{grid-column:2}
 
 /* Saneamiento funcional visible en Control administrativo. */
-.nv828FunctionHealth{display:grid;gap:8px;margin-top:10px}
-.nv828FunctionHealth article{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid #dce9e2;border-radius:13px;background:#fff;padding:10px}
-.nv828FunctionHealth article>i{width:10px;height:10px;border-radius:50%;background:#c55b4d;box-shadow:0 0 0 4px rgba(197,91,77,.10)}
-.nv828FunctionHealth article.ok>i{background:#15915a;box-shadow:0 0 0 4px rgba(21,145,90,.10)}
-.nv828FunctionHealth strong,.nv828FunctionHealth small{display:block;min-width:0;overflow-wrap:anywhere}.nv828FunctionHealth strong{color:#184b36;font-size:.78rem}.nv828FunctionHealth small{margin-top:2px;color:#6f8178;font-size:.64rem}.nv828FunctionHealth span{border-radius:999px;background:#eef5f1;padding:5px 8px;color:#476357;font-size:.6rem;font-weight:850}
+.nv829FunctionHealth{display:grid;gap:8px;margin-top:10px}
+.nv829FunctionHealth article{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid #dce9e2;border-radius:13px;background:#fff;padding:10px}
+.nv829FunctionHealth article>i{width:10px;height:10px;border-radius:50%;background:#c55b4d;box-shadow:0 0 0 4px rgba(197,91,77,.10)}
+.nv829FunctionHealth article.ok>i{background:#15915a;box-shadow:0 0 0 4px rgba(21,145,90,.10)}
+.nv829FunctionHealth strong,.nv829FunctionHealth small{display:block;min-width:0;overflow-wrap:anywhere}.nv829FunctionHealth strong{color:#184b36;font-size:.78rem}.nv829FunctionHealth small{margin-top:2px;color:#6f8178;font-size:.64rem}.nv829FunctionHealth span{border-radius:999px;background:#eef5f1;padding:5px 8px;color:#476357;font-size:.6rem;font-weight:850}
 
 @media(max-width:560px){
-  .nvAiSaleItemEditorV828{grid-template-columns:minmax(0,1fr) 78px;padding:8px}
+  .nvAiSaleItemEditorV829{grid-template-columns:minmax(0,1fr) 78px;padding:8px}
   .v802CategoryCopy small{font-size:.72rem!important;line-height:1.42!important}
 }
-/* Ajuste visual del diagnóstico funcional V8.2.8. */
-.nv828FunctionSummary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;border-radius:16px;background:linear-gradient(145deg,#edf8f2,#f9fcfa);padding:14px}
-.nv828FunctionSummary h2{margin:3px 0;color:#123f2d}.nv828FunctionSummary p{margin:0;color:#60776c;font-size:.72rem;line-height:1.45}.nv828FunctionSummary>strong{display:grid;place-items:center;min-width:68px;height:52px;border-radius:15px;background:#0c8150;color:#fff;font-size:1.05rem}
-.nv828FunctionRows{display:grid;gap:8px}
-.nv828FunctionRows article{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid #dce9e2;border-radius:13px;background:#fff;padding:10px}
-.nv828FunctionRows article>span:first-child{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#c55b4d;color:#fff;font-weight:950}
-.nv828FunctionRows article.ok>span:first-child{background:#15915a}
-.nv828FunctionRows article strong,.nv828FunctionRows article small{display:block;overflow-wrap:anywhere}.nv828FunctionRows article strong{color:#184b36;font-size:.78rem}.nv828FunctionRows article small{margin-top:2px;color:#6f8178;font-size:.64rem}.nv828FunctionRows article em{border-radius:999px;background:#eef5f1;padding:5px 8px;color:#476357;font-size:.6rem;font-style:normal;font-weight:850}.nv828FunctionRows article.fail em{background:#fff0ed;color:#9b4439}
-@media(max-width:560px){.nv828FunctionSummary{grid-template-columns:1fr auto;padding:12px}.nv828FunctionRows article{grid-template-columns:24px minmax(0,1fr)}.nv828FunctionRows article em{grid-column:2;justify-self:start}}
+/* Ajuste visual del diagnóstico funcional V8.2.9. */
+.nv829FunctionSummary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;border-radius:16px;background:linear-gradient(145deg,#edf8f2,#f9fcfa);padding:14px}
+.nv829FunctionSummary h2{margin:3px 0;color:#123f2d}.nv829FunctionSummary p{margin:0;color:#60776c;font-size:.72rem;line-height:1.45}.nv829FunctionSummary>strong{display:grid;place-items:center;min-width:68px;height:52px;border-radius:15px;background:#0c8150;color:#fff;font-size:1.05rem}
+.nv829FunctionRows{display:grid;gap:8px}
+.nv829FunctionRows article{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:9px;align-items:center;border:1px solid #dce9e2;border-radius:13px;background:#fff;padding:10px}
+.nv829FunctionRows article>span:first-child{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#c55b4d;color:#fff;font-weight:950}
+.nv829FunctionRows article.ok>span:first-child{background:#15915a}
+.nv829FunctionRows article strong,.nv829FunctionRows article small{display:block;overflow-wrap:anywhere}.nv829FunctionRows article strong{color:#184b36;font-size:.78rem}.nv829FunctionRows article small{margin-top:2px;color:#6f8178;font-size:.64rem}.nv829FunctionRows article em{border-radius:999px;background:#eef5f1;padding:5px 8px;color:#476357;font-size:.6rem;font-style:normal;font-weight:850}.nv829FunctionRows article.fail em{background:#fff0ed;color:#9b4439}
+@media(max-width:560px){.nv829FunctionSummary{grid-template-columns:1fr auto;padding:12px}.nv829FunctionRows article{grid-template-columns:24px minmax(0,1fr)}.nv829FunctionRows article em{grid-column:2;justify-self:start}}
 .nv806Metrics{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+
+
+/* V8.2.9 — error persistente y recuperable del registro de ventas. */
+.nv829SaleError{margin:14px 0;padding:15px 16px;border:1px solid #e6a78d;border-radius:18px;background:#fff1e9;color:#6d2e18;display:grid;gap:5px;line-height:1.35}
+.nv829SaleError strong{font-size:16px;color:#8a3218}
+.nv829SaleError span{font-weight:800}
+.nv829SaleError p{margin:3px 0;font-size:14px;word-break:break-word}
+.nv829SaleError small{color:#7a574a}

@@ -1,11 +1,11 @@
-/* NATURA VIDA V8.2.8 — Rendición de caja visible, movimientos verificables y configuración guiada.
+/* NATURA VIDA V8.2.9 — Rendición de caja visible, movimientos verificables y configuración guiada.
    El efectivo se calcula con ventas y pagos registrados. Los pagos QR/transferencia
    se separan del dinero físico y pueden verificarse manualmente hasta conectar un
    proveedor bancario real. */
 (function(){
   'use strict';
 
-  const VERSION='8.2.8';
+  const VERSION='8.2.9';
   const TABLE_SETTLEMENTS='nv_seller_settlements';
   const TABLE_VERIFY='nv_payment_verifications';
   let selectedSellerId='';

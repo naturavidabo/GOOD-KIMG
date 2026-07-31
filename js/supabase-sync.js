@@ -1263,6 +1263,7 @@ Object.assign(window, {
   deleteCloudClient,
   syncCloudClientsToLocal,
   syncCloudSalesToLocal,
+  findCloudSaleById,
   syncGenericCloudRecordsToLocal,
   insertCloudMessage,
   fetchCloudInboxMessages,

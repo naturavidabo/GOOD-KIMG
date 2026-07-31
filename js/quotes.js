@@ -1,4 +1,4 @@
-/* quotes.js — Cotizaciones. V8.2.8 admite borradores preparados por el Asistente IA. */
+/* quotes.js — Cotizaciones. V8.2.9 admite borradores preparados por el Asistente IA. */
 
 function isExpired(quote) {
   if (!quote.expiryDate) return false;

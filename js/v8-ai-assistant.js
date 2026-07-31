@@ -1,11 +1,11 @@
-/* Natura Vida V8.2.8 — Asistente operativo real, borradores ejecutables y saneamiento funcional.
+/* Natura Vida V8.2.9 — Asistente operativo real, borradores ejecutables y saneamiento funcional.
    Acceso exclusivo para administrador central. Los cálculos críticos continúan
    siendo locales; Gemini interpreta un resumen empresarial limitado a través
    de una Supabase Edge Function y nunca recibe claves desde el navegador. */
 (function(){
   'use strict';
 
-  const VERSION='8.2.8';
+  const VERSION='8.2.9';
   const MAX_ENTRIES=40;
   const MAX_ARCHIVES=12;
   const MAX_ACTION_HISTORY=40;
@@ -173,22 +173,22 @@
     return'monthly';
   }
   function frequencyLabel(value){return value==='weekly'?'Semanal':value==='biweekly'?'Quincenal':'Mensual';}
-  function friendlyMissingFieldV828(value){
+  function friendlyMissingFieldV829(value){
     const key=normalizedName(value).replace(/\s+/g,'_');
     const map={payment_method:'forma de pago',forma_de_pago:'forma de pago',sale_type:'tipo de venta',tipo_de_venta:'tipo de venta',client:'cliente',cliente:'cliente',product:'producto',producto:'producto',quantity:'cantidad',cantidad:'cantidad',amount:'monto',monto:'monto',installment_amount:'monto de la cuota',monto_de_la_cuota:'monto de la cuota'};
     return map[key]||String(value||'').replace(/_/g,' ').trim();
   }
-  function isNonBlockingSaleFieldV828(value){
+  function isNonBlockingSaleFieldV829(value){
     const key=normalizedName(value).replace(/\s+/g,'_');
     return ['payment_method','forma_de_pago','sale_type','tipo_de_venta'].includes(key);
   }
-  function inferSaleTypeV828(client,question,supplied=''){
+  function inferSaleTypeV829(client,question,supplied=''){
     if(['unit','market','representative_transfer','reseller_unit','reseller_wholesale'].includes(String(supplied||'')))return String(supplied);
     const q=normalizedName(question);if(/representante|traspaso/.test(q))return'representative_transfer';if(/mayorista|por mayor/.test(q))return'market';if(/revendedor|reventa/.test(q))return'reseller_wholesale';
     const type=normalizedName([client?.customerType,client?.type,client?.priceGroupName].filter(Boolean).join(' '));
     if(/mayorista|wholesale|mercado/.test(type))return'market';if(/revendedor|reseller/.test(type))return'reseller_wholesale';return'unit';
   }
-  function resolveDraftActionV828(question,response={}){
+  function resolveDraftActionV829(question,response={}){
     const supplied=response?.draftAction&&typeof response.draftAction==='object'?response.draftAction:null;
     const q=normalizedName(question);
     const detectedClient=resolveClientFromText(`${question} ${supplied?.client_query||''}`)||focusedClientRecord();
@@ -210,7 +210,7 @@
     if(suppliedItems.length){
       items=suppliedItems.map(it=>{const p=productByQuestion(it?.product_query||question);return {productId:p?.id||'',productName:p?.name||it?.product_query||'Producto',quantity:Math.max(1,Math.min(999,Number(it?.quantity)||1)),stock:Number(p?.stock||0),unitPrice:productPriceV827(p),unitCost:productCostV827(p)};});
     }else{
-      items=parseRequestedItemsV828(question);
+      items=parseRequestedItemsV829(question);
       if(!items.length){const detectedProduct=productByQuestion(question);if(detectedProduct)items=[{productId:detectedProduct.id,productName:detectedProduct.name,quantity:extractQuantityV827(question),stock:Number(detectedProduct.stock||0),unitPrice:productPriceV827(detectedProduct),unitCost:productCostV827(detectedProduct)}];}
     }
     const merged=new Map();items.forEach(it=>{const key=String(it.productId||normalizedName(it.productName));const prev=merged.get(key);if(prev)prev.quantity+=Number(it.quantity||0);else merged.set(key,{...it});});items=[...merged.values()];
@@ -218,11 +218,11 @@
     if(['create_payment_plan','register_payment','generate_receipt'].includes(type)&&!client?.id)missing.push('cliente');
     if(['create_payment_plan','register_payment','generate_receipt'].includes(type)&&!amount)missing.push(type==='create_payment_plan'?'monto de la cuota':'monto pagado');
     if(['prepare_sale','create_quote'].includes(type)&&(!items.length||items.some(x=>!x.productId)))missing.push('producto');
-    const externalMissing=(Array.isArray(response?.missingFields)?response.missingFields:[]).map(friendlyMissingFieldV828).filter(Boolean).filter(field=>!(['prepare_sale','create_quote'].includes(type)&&isNonBlockingSaleFieldV828(field)));
-    const saleType=inferSaleTypeV828(client,question,supplied?.sale_type||'');
-    return {type,clientId:client?.id||'',clientName:clientDisplayName(client),amount,installmentAmount:Number(supplied?.installment_amount)||amount,frequency:supplied?.frequency||extractFrequency(question),startDate:supplied?.start_date||new Date().toISOString().slice(0,10),note:clampText(supplied?.note||question,240),paymentMethod:supplied?.payment_method||paymentMethodFromTextV827(question),saleType,items,missingFields:[...new Set([...externalMissing,...missing].map(friendlyMissingFieldV828))],account:client?clientDebtInfo(client):account};
+    const externalMissing=(Array.isArray(response?.missingFields)?response.missingFields:[]).map(friendlyMissingFieldV829).filter(Boolean).filter(field=>!(['prepare_sale','create_quote'].includes(type)&&isNonBlockingSaleFieldV829(field)));
+    const saleType=inferSaleTypeV829(client,question,supplied?.sale_type||'');
+    return {type,clientId:client?.id||'',clientName:clientDisplayName(client),amount,installmentAmount:Number(supplied?.installment_amount)||amount,frequency:supplied?.frequency||extractFrequency(question),startDate:supplied?.start_date||new Date().toISOString().slice(0,10),note:clampText(supplied?.note||question,240),paymentMethod:supplied?.payment_method||paymentMethodFromTextV827(question),saleType,items,missingFields:[...new Set([...externalMissing,...missing].map(friendlyMissingFieldV829))],account:client?clientDebtInfo(client):account};
   }
-  const resolveDraftActionV825=resolveDraftActionV828;
+  const resolveDraftActionV825=resolveDraftActionV829;
   function dateMs(v){ const n=Number(new Date(v||0)); return Number.isFinite(n)?n:0; }
   function daysSince(v){ const n=dateMs(v); return n?Math.max(0,Math.floor((Date.now()-n)/86400000)):9999; }
   function receivableStats(){
@@ -268,7 +268,7 @@
     return 1;
   }
   function paymentMethodFromTextV827(query){const q=normalizedName(query);if(/\bqr\b|transferencia|deposito|depósito/.test(q))return'qr';if(/credito|crédito|a cuenta|por cobrar/.test(q))return'credit';if(/efectivo|contado/.test(q))return'cash';return'';}
-  function parseRequestedItemsV828(query){
+  function parseRequestedItemsV829(query){
     const q=normalizedName(query);const found=[];
     const numberWords='un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte|treinta';
     const re=new RegExp(`\\b(\\d{1,3}|${numberWords})\\b\\s*(?:aceites?|frascos?|unidades?|productos?)?\\s*(?:de\\s*)?(60|100|115|125|200|500)\\s*ml(?:\\s*(pet|vidrio))?`,'g');
@@ -280,8 +280,8 @@
     }
     return found;
   }
-  function saleTypeLabelV828(value){return ({unit:'Unitaria',market:'Mayorista',representative_transfer:'Representantes',reseller_unit:'Reventa unitaria',reseller_wholesale:'Reventa mayorista'})[value]||'Venta normal';}
-  function productOptionsV828(selectedId,selectedName=''){
+  function saleTypeLabelV829(value){return ({unit:'Unitaria',market:'Mayorista',representative_transfer:'Representantes',reseller_unit:'Reventa unitaria',reseller_wholesale:'Reventa mayorista'})[value]||'Venta normal';}
+  function productOptionsV829(selectedId,selectedName=''){
     const products=(dataset().products||[]).filter(p=>p.status!=='archived');const selected=products.find(p=>String(p.id)===String(selectedId));const size=(normalizedName(selected?.name||selectedName).match(/\\b(60|100|115|125|200|500)\\s*ml\\b/)||[])[1]||'';
     const rows=products.filter(p=>!size||normalizedName(p.name).includes(size)).slice(0,30);if(selected&&!rows.some(p=>String(p.id)===String(selected.id)))rows.unshift(selected);
     return rows.map(p=>`<option value="${esc(p.id)}" ${String(p.id)===String(selectedId)?'selected':''}>${esc(p.name)} · stock ${Number(p.stock||0)} · ${esc(money(productPriceV827(p)))}</option>`).join('');
@@ -365,12 +365,12 @@
     const next=(Array.isArray(a.next_questions)?a.next_questions:[]).slice(0,operational?2:4).map(x=>clampText(x,150)).filter(Boolean);
     const tabMap={ventas:'historial',clientes:'clientes',inventario:'inventario',cobranzas:'por-cobrar','reglas-comerciales':'reglas-comerciales',territorio:'territorio',finanzas:'egresos',rendicion:'rendicion-caja'};
     const area=String(a.action_area||'none');const action=tabMap[area]?{label:`Abrir ${area.replace('-',' ')}`,tab:tabMap[area]}:null;
-    const missingFields=(Array.isArray(a.missing_fields)?a.missing_fields:[]).map(friendlyMissingFieldV828).filter(Boolean).filter(field=>!(['prepare_sale','create_quote'].includes(draftType)&&isNonBlockingSaleFieldV828(field)));
+    const missingFields=(Array.isArray(a.missing_fields)?a.missing_fields:[]).map(friendlyMissingFieldV829).filter(Boolean).filter(field=>!(['prepare_sale','create_quote'].includes(draftType)&&isNonBlockingSaleFieldV829(field)));
     const bodyParts=[safeHtml(a.summary||'Análisis completado con los datos disponibles.')];if(missingFields.length)bodyParts.push(`<span class="nvAiMissingV825">Para continuar necesito: ${esc(missingFields.join(', '))}.</span>`);
     return {title:clampText(a.title||'Análisis inteligente',100),body:bodyParts.join('<br>'),list:[...facts.map(x=>`Dato: ${x}`),...rec.map(x=>`Sugerencia: ${x}`),...risks.map(x=>`Riesgo: ${x}`)],suggestions:next,action,intent:clampText(a.intent||'analysis',60),missingFields,draftAction:draftRaw?{type:clampText(draftRaw.type||'none',60),client_query:clampText(draftRaw.client_query||'',100),amount:Number(draftRaw.amount)||0,installment_amount:Number(draftRaw.installment_amount)||0,frequency:clampText(draftRaw.frequency||'',30),start_date:clampText(draftRaw.start_date||'',20),note:clampText(draftRaw.note||'',240),payment_method:clampText(draftRaw.payment_method||'',20),sale_type:clampText(draftRaw.sale_type||'',30),items:Array.isArray(draftRaw.items)?draftRaw.items.slice(0,8).map(it=>({product_query:clampText(it?.product_query||'',120),quantity:Math.max(1,Math.min(999,Number(it?.quantity)||1))})):[]}:null,confidence:['alta','media','baja'].includes(String(a.confidence))?String(a.confidence):'media',engine:'external',model:clampText(data?.model||engineState.model,60),usage:data?.usage||null,privacy:data?.privacy||{snapshotOnly:true},operationalIntent:operational};
   }
-  function shapeOperationalResponseV828(question,response){
-    const draft=resolveDraftActionV828(question,response);if(!['prepare_sale','create_quote'].includes(draft.type))return response;
+  function shapeOperationalResponseV829(question,response){
+    const draft=resolveDraftActionV829(question,response);if(!['prepare_sale','create_quote'].includes(draft.type))return response;
     const base={...response,draftAction:draft,missingFields:draft.missingFields};
     if(draft.missingFields.length)return {...base,title:draft.type==='create_quote'?'Completemos la cotización':'Completemos la venta',body:`Puedo preparar el trabajo, pero necesito: <b>${esc(draft.missingFields.join(' y '))}</b>.`,list:[],suggestions:[],operationalReady:false};
     const units=draft.items.reduce((n,x)=>n+Number(x.quantity||0),0);const total=draft.items.reduce((n,x)=>n+Number(x.quantity||0)*Number(x.unitPrice||0),0);const stockOk=draft.items.every(x=>Number(x.stock||0)>=Number(x.quantity||0));const clientText=draft.clientName?` para <b>${esc(draft.clientName)}</b>`:'';
@@ -418,7 +418,7 @@
     if(!result?.data?.ok) throw new Error(clampText(result?.data?.message||result?.data?.error?.message||'Respuesta IA inválida.',220));
     engineState={...engineState,mode:'external',configured:true,migrationReady:true,model:result.data.model||engineState.model,usage:result.data.usage||engineState.usage,checkedAt:Date.now(),message:'Motor IA conectado'};
     updateEngineUI();
-    return shapeOperationalResponseV828(question,normalizeEngineResponse(result.data));
+    return shapeOperationalResponseV829(question,normalizeEngineResponse(result.data));
   }
   function updateEngineUI(){
     const badge=document.getElementById('nvAiEngineBadge');
@@ -477,7 +477,7 @@
     if(/descuento|margen|promoci/.test(q))add({type:'open_tab',label:'Abrir reglas comerciales',tab:'reglas-comerciales',summary:'Simular y revisar márgenes antes de autorizar.'});
     return actions.slice(0,5);
   }
-  function enrichResponse(response,question){const r=response||{};const draft=resolveDraftActionV828(question,r);r.proposals=buildActionProposals(question,r);if(r.proposals.length&&draft.type!=='none'&&!draft.missingFields.length)r.operationalReady=true;return r;}
+  function enrichResponse(response,question){const r=response||{};const draft=resolveDraftActionV829(question,r);r.proposals=buildActionProposals(question,r);if(r.proposals.length&&draft.type!=='none'&&!draft.missingFields.length)r.operationalReady=true;return r;}
   async function auditAssistantAction(action,status){
     try{if(window.writeAudit)await writeAudit('ai_action_'+status,'assistant',action.clientId||action.tab||action.type,null,{type:action.type,label:action.label,clientId:action.clientId||null,clientName:action.clientName||null});}catch(_){ }
   }
@@ -503,7 +503,7 @@
     if(action.frequency)rows.push(['Frecuencia',frequencyLabel(action.frequency)]);
     if(action.startDate)rows.push(['Inicio',new Date(`${action.startDate}T12:00:00`).toLocaleDateString('es-BO')]);
     if(Array.isArray(action.items)&&action.items.length){rows.push(['Productos',action.items.map(x=>`${Number(x.quantity||1)} × ${x.productName||'Producto'}`).join(' · ')]);const total=action.items.reduce((sum,x)=>sum+Number(x.quantity||0)*Number(x.unitPrice||0),0);if(total>0)rows.push(['Total estimado',money(total)]);}
-    if(['prepare_sale','create_quote'].includes(action.type))rows.push(['Tipo de venta',saleTypeLabelV828(action.saleType)]);
+    if(['prepare_sale','create_quote'].includes(action.type))rows.push(['Tipo de venta',saleTypeLabelV829(action.saleType)]);
     if(action.type==='prepare_sale')rows.push(['Forma de pago',action.paymentMethod?(({cash:'Efectivo',qr:'QR / transferencia',credit:'A crédito'})[action.paymentMethod]||action.paymentMethod):'Elegir al confirmar']);
     return rows.length?`<div class="nvAiActionFactsV825">${rows.map(x=>`<span><small>${esc(x[0])}</small><b>${esc(x[1])}</b></span>`).join('')}</div>`:'';
   }
@@ -511,7 +511,7 @@
     const moneyTypes=['register_payment','generate_receipt'];const plan=action.type==='create_payment_plan';const sale=['prepare_sale','create_quote'].includes(action.type);
     if(!plan&&!moneyTypes.includes(action.type)&&!sale)return '';
     return `<div class="nvAiActionEditorV826 hidden" id="nvAiActionEditorV826">
-      ${sale?`<div class="nvAiSaleItemsV828">${(action.items||[]).map((item,index)=>`<div class="nvAiSaleItemEditorV828" data-ai-edit-item="${index}"><label>Producto ${index+1}</label><select id="nvAiEditProductV828_${index}">${productOptionsV828(item.productId,item.productName)}</select><label>Cantidad</label><input id="nvAiEditQtyV828_${index}" type="number" inputmode="numeric" min="1" step="1" value="${Number(item.quantity||1)}"></div>`).join('')}</div>${action.type==='prepare_sale'?`<div class="field-row"><div class="field"><label>Tipo de venta</label><select id="nvAiEditSaleTypeV828"><option value="unit" ${action.saleType==='unit'?'selected':''}>Unitaria</option><option value="market" ${action.saleType==='market'?'selected':''}>Mayorista</option><option value="representative_transfer" ${action.saleType==='representative_transfer'?'selected':''}>Representantes</option><option value="reseller_unit" ${action.saleType==='reseller_unit'?'selected':''}>Reventa unitaria</option><option value="reseller_wholesale" ${action.saleType==='reseller_wholesale'?'selected':''}>Reventa mayorista</option></select></div><div class="field"><label>Forma de pago</label><select id="nvAiEditPaymentV828"><option value="" ${!action.paymentMethod?'selected':''}>Elegir al confirmar</option><option value="cash" ${action.paymentMethod==='cash'?'selected':''}>Efectivo</option><option value="qr" ${action.paymentMethod==='qr'?'selected':''}>QR / transferencia</option><option value="credit" ${action.paymentMethod==='credit'?'selected':''}>A crédito</option></select></div></div>`:''}`:''}
+      ${sale?`<div class="nvAiSaleItemsV829">${(action.items||[]).map((item,index)=>`<div class="nvAiSaleItemEditorV829" data-ai-edit-item="${index}"><label>Producto ${index+1}</label><select id="nvAiEditProductV829_${index}">${productOptionsV829(item.productId,item.productName)}</select><label>Cantidad</label><input id="nvAiEditQtyV829_${index}" type="number" inputmode="numeric" min="1" step="1" value="${Number(item.quantity||1)}"></div>`).join('')}</div>${action.type==='prepare_sale'?`<div class="field-row"><div class="field"><label>Tipo de venta</label><select id="nvAiEditSaleTypeV829"><option value="unit" ${action.saleType==='unit'?'selected':''}>Unitaria</option><option value="market" ${action.saleType==='market'?'selected':''}>Mayorista</option><option value="representative_transfer" ${action.saleType==='representative_transfer'?'selected':''}>Representantes</option><option value="reseller_unit" ${action.saleType==='reseller_unit'?'selected':''}>Reventa unitaria</option><option value="reseller_wholesale" ${action.saleType==='reseller_wholesale'?'selected':''}>Reventa mayorista</option></select></div><div class="field"><label>Forma de pago</label><select id="nvAiEditPaymentV829"><option value="" ${!action.paymentMethod?'selected':''}>Elegir al confirmar</option><option value="cash" ${action.paymentMethod==='cash'?'selected':''}>Efectivo</option><option value="qr" ${action.paymentMethod==='qr'?'selected':''}>QR / transferencia</option><option value="credit" ${action.paymentMethod==='credit'?'selected':''}>A crédito</option></select></div></div>`:''}`:''}
       ${moneyTypes.includes(action.type)?`<div class="field"><label>Monto</label><input id="nvAiEditAmountV826" type="number" inputmode="decimal" min="0.01" step="0.01" value="${Number(action.amount||0)||''}"></div>`:''}
       ${plan?`<div class="field-row"><div class="field"><label>Cuota</label><input id="nvAiEditInstallmentV826" type="number" inputmode="decimal" min="0.01" step="0.01" value="${Number(action.installmentAmount||0)||''}"></div><div class="field"><label>Frecuencia</label><select id="nvAiEditFrequencyV826"><option value="monthly" ${action.frequency==='monthly'?'selected':''}>Mensual</option><option value="biweekly" ${action.frequency==='biweekly'?'selected':''}>Quincenal</option><option value="weekly" ${action.frequency==='weekly'?'selected':''}>Semanal</option></select></div></div><div class="field"><label>Primera fecha</label><input id="nvAiEditStartV826" type="date" value="${esc(action.startDate||new Date().toISOString().slice(0,10))}"></div>`:''}
       <div class="field"><label>Nota para el formulario</label><textarea id="nvAiEditNoteV826" rows="2">${esc(action.note||'')}</textarea></div><small>Los cambios se aplican únicamente al borrador. El formulario final todavía requerirá confirmación.</small>
@@ -529,8 +529,8 @@
     if(start)action.startDate=start.value;
     if(note)action.note=note.value.trim();
     if(['prepare_sale','create_quote'].includes(action.type)){
-      action.items=(action.items||[]).map((item,index)=>{const productId=document.getElementById(`nvAiEditProductV828_${index}`)?.value||item.productId;const product=(dataset().products||[]).find(p=>String(p.id)===String(productId));const qty=Number(document.getElementById(`nvAiEditQtyV828_${index}`)?.value||item.quantity||0);if(!product)throw new Error(`Selecciona un producto válido en la fila ${index+1}.`);if(!(qty>0))throw new Error(`Ingresa una cantidad válida en la fila ${index+1}.`);return {productId:product.id,productName:product.name,quantity:Math.floor(qty),stock:Number(product.stock||0),unitPrice:productPriceV827(product),unitCost:productCostV827(product)};});
-      const saleType=document.getElementById('nvAiEditSaleTypeV828');const payment=document.getElementById('nvAiEditPaymentV828');if(saleType)action.saleType=saleType.value;if(payment)action.paymentMethod=payment.value;
+      action.items=(action.items||[]).map((item,index)=>{const productId=document.getElementById(`nvAiEditProductV829_${index}`)?.value||item.productId;const product=(dataset().products||[]).find(p=>String(p.id)===String(productId));const qty=Number(document.getElementById(`nvAiEditQtyV829_${index}`)?.value||item.quantity||0);if(!product)throw new Error(`Selecciona un producto válido en la fila ${index+1}.`);if(!(qty>0))throw new Error(`Ingresa una cantidad válida en la fila ${index+1}.`);return {productId:product.id,productName:product.name,quantity:Math.floor(qty),stock:Number(product.stock||0),unitPrice:productPriceV827(product),unitCost:productCostV827(product)};});
+      const saleType=document.getElementById('nvAiEditSaleTypeV829');const payment=document.getElementById('nvAiEditPaymentV829');if(saleType)action.saleType=saleType.value;if(payment)action.paymentMethod=payment.value;
     }
     return action;
   }
@@ -735,7 +735,7 @@
   function renderResponse(r,entry={}){
     const source=r.engine==='external'?`<span class="nvAiAnswerSource external">IA · ${esc(r.model||'Gemini')}</span>`:r.engine==='local-fallback'?'<span class="nvAiAnswerSource fallback">Respaldo local</span>':'<span class="nvAiAnswerSource local">Cálculo local</span>';
     const confidence=r.confidence?`<span class="nvAiConfidence">Confianza ${esc(r.confidence)}</span>`:'';
-    return `<article class="nvAiMessage assistant" data-request-id="${esc(entry.requestId||'')}"><div class="nvAiBotMini">${botSvg('mini')}</div><div class="nvAiBubble"><div class="nvAiAnswerHead"><strong>${esc(r.title)}</strong><span>${source}${confidence}</span></div><p>${r.body||''}</p>${r.cards?`<div class="nvAiMetrics">${r.cards.map(x=>`<div><small>${esc(x[0])}</small><b>${esc(x[1])}</b></div>`).join('')}</div>`:''}${r.table?`<div class="nvAiTable"><div class="head"><span>Producto</span><span>Unid.</span><span>Utilidad</span><span>Margen</span></div>${r.table.map(row=>`<div>${row.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`).join('')}</div>`:''}${r.proposals?.length?`<div class="nvAiActionPanel ${r.operationalReady?'readyV828':''}"><span>${r.operationalReady?'Trabajo listo para revisión':'Acciones con confirmación'}</span><div class="nvAiActionGrid">${r.proposals.map((a,index)=>`<button class="${index===0&&r.operationalReady?'primaryV828':''}" type="button" data-ai-action="${esc(encodeURIComponent(JSON.stringify(a)))}"><b>${esc(a.label)}</b><small>${esc(a.summary||'Revisar antes de continuar')}</small></button>`).join('')}</div></div>`:''}${r.list?.length?`<ul>${r.list.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${r.diagnostic?`<div class="nvAiDiagnosticV824"><strong>Diagnóstico del motor</strong><br>${esc(r.diagnostic)}</div>`:''}${r.action&&!r.proposals?.some(a=>a.type==='open_tab'&&a.tab===r.action.tab)?`<button class="nvAiInlineAction" type="button" data-ai-tab="${esc(r.action.tab)}">${esc(r.action.label)}</button>`:''}${r.suggestions?.length?`<div class="nvAiSuggestions">${r.suggestions.map(x=>`<button type="button" data-ai-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:''}<div class="nvAiSpeechToolsV826"><button type="button" data-ai-speak="${esc(encodeURIComponent(responseSpeechTextV826(r)))}">🔊 Escuchar</button><small>Lectura local del dispositivo · sin micrófono</small></div></div></article>`;
+    return `<article class="nvAiMessage assistant" data-request-id="${esc(entry.requestId||'')}"><div class="nvAiBotMini">${botSvg('mini')}</div><div class="nvAiBubble"><div class="nvAiAnswerHead"><strong>${esc(r.title)}</strong><span>${source}${confidence}</span></div><p>${r.body||''}</p>${r.cards?`<div class="nvAiMetrics">${r.cards.map(x=>`<div><small>${esc(x[0])}</small><b>${esc(x[1])}</b></div>`).join('')}</div>`:''}${r.table?`<div class="nvAiTable"><div class="head"><span>Producto</span><span>Unid.</span><span>Utilidad</span><span>Margen</span></div>${r.table.map(row=>`<div>${row.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`).join('')}</div>`:''}${r.proposals?.length?`<div class="nvAiActionPanel ${r.operationalReady?'readyV829':''}"><span>${r.operationalReady?'Trabajo listo para revisión':'Acciones con confirmación'}</span><div class="nvAiActionGrid">${r.proposals.map((a,index)=>`<button class="${index===0&&r.operationalReady?'primaryV829':''}" type="button" data-ai-action="${esc(encodeURIComponent(JSON.stringify(a)))}"><b>${esc(a.label)}</b><small>${esc(a.summary||'Revisar antes de continuar')}</small></button>`).join('')}</div></div>`:''}${r.list?.length?`<ul>${r.list.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:''}${r.diagnostic?`<div class="nvAiDiagnosticV824"><strong>Diagnóstico del motor</strong><br>${esc(r.diagnostic)}</div>`:''}${r.action&&!r.proposals?.some(a=>a.type==='open_tab'&&a.tab===r.action.tab)?`<button class="nvAiInlineAction" type="button" data-ai-tab="${esc(r.action.tab)}">${esc(r.action.label)}</button>`:''}${r.suggestions?.length?`<div class="nvAiSuggestions">${r.suggestions.map(x=>`<button type="button" data-ai-q="${esc(x)}">${esc(x)}</button>`).join('')}</div>`:''}<div class="nvAiSpeechToolsV826"><button type="button" data-ai-speak="${esc(encodeURIComponent(responseSpeechTextV826(r)))}">🔊 Escuchar</button><small>Lectura local del dispositivo · sin micrófono</small></div></div></article>`;
   }
   function renderEntry(entry){
     if(entry.role==='user') return `<article class="nvAiMessage user" data-ai-entry="${esc(entry.id)}" data-request-id="${esc(entry.requestId||'')}"><div class="nvAiBubble">${esc(entry.text)}</div></article>`;
@@ -978,7 +978,7 @@
     document.addEventListener('focusout',positionFabSmartV827);
     setTimeout(ensureFab,250);
     setTimeout(()=>checkEngine(false).catch(()=>{}),700);
-    window.renderAIAssistantV828=renderAssistant;
+    window.renderAIAssistantV829=renderAssistant;
     window.renderAIAssistantV826=renderAssistant;
     window.renderAIAssistantV825=renderAssistant;
     window.renderAIAssistantV824=renderAssistant;
@@ -995,9 +995,9 @@
     window.openAIAssistantSheetV810=openSheet;
   }
 
-  window.__nvAiV828={VERSION,readConversation,writeConversation,addEntry,clearConversation,readArchivesV824,archiveCurrentConversationV824,startNewConversationV824,dedupeEntriesV824,readActionHistory,answerLocal,businessSnapshot,recommendations,discountSimulation,checkEngine,answerWithEngine,renderAssistant,openSheet,openForContext,openActionReview,ask,botSvg,speakTextV826,stopSpeechV826,resolveDraftActionV828,buildActionProposals,shapeOperationalResponseV828,get engineState(){return {...engineState};}};
-  window.__nvAiV827=window.__nvAiV828;
-  window.__nvAiV826=window.__nvAiV828;
+  window.__nvAiV829={VERSION,readConversation,writeConversation,addEntry,clearConversation,readArchivesV824,archiveCurrentConversationV824,startNewConversationV824,dedupeEntriesV824,readActionHistory,answerLocal,businessSnapshot,recommendations,discountSimulation,checkEngine,answerWithEngine,renderAssistant,openSheet,openForContext,openActionReview,ask,botSvg,speakTextV826,stopSpeechV826,resolveDraftActionV829,buildActionProposals,shapeOperationalResponseV829,get engineState(){return {...engineState};}};
+  window.__nvAiV827=window.__nvAiV829;
+  window.__nvAiV826=window.__nvAiV829;
   window.__nvAiV825=window.__nvAiV827;
   window.__nvAiV824=window.__nvAiV827;
   window.__nvAiV822=window.__nvAiV827;

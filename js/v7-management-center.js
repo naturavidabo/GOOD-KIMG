@@ -1,4 +1,4 @@
-/* NATURA VIDA V8.2.8 — Centro de gestión con contraste accesible y saneamiento visual. */
+/* NATURA VIDA V8.2.9 — Centro de gestión con contraste accesible y saneamiento visual. */
 (() => {
   let activeCategory = '';
   let searchTerm = '';

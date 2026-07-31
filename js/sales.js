@@ -1,5 +1,5 @@
 /* sales.js — Venta con precios flexibles por producto.
-   V8.2.8: admite borradores supervisados preparados por el Asistente IA. */
+   V8.2.9: ventas verificables, recibos recuperables y borradores supervisados por IA. */
 
 let _saleType = 'unit';
 let _saleSelectedGroup = null;
@@ -9,7 +9,7 @@ let _cartPrices = {}; // { productId: manual pricing entry }
 let _saleDraftV827 = null; // Borrador preparado por IA; nunca se guarda automáticamente.
 
 
-/* V8.2.8 — Selector compacto de forma de pago y preparación para verificación bancaria. */
+/* V8.2.9 — Selector compacto de forma de pago y preparación para verificación bancaria. */
 function paymentMethodLabelV826(method) {
   return ({ cash: 'Efectivo', qr: 'QR / transferencia', credit: 'A crédito' })[String(method || '')] || 'Sin definir';
 }
@@ -28,6 +28,40 @@ function paymentChoiceSummaryV826(choice, total) {
   const paid = Number(choice.amountPaid || 0);
   const pending = Math.max(0, Number(total || 0) - paid);
   return `<div class="nv826PaymentSummary ${escapeHtml(choice.method || '')}"><span>${escapeHtml(paymentMethodLabelV826(choice.method))}</span><strong>${escapeHtml(paymentStatusLabelV826(choice.paymentStatus))}</strong><small>Pagado ${fmtMoney(paid)}${pending > .009 ? ` · Saldo ${fmtMoney(pending)}` : ''}</small><button type="button" class="nv826ChangePayment">Cambiar</button></div>`;
+}
+
+
+/* V8.2.9 — Persistencia verificable: el recibo solo depende de una venta confirmada. */
+function saleStageLabelV829(stage) {
+  return ({stock:'verificación de stock',client:'registro del cliente',number:'numeración del recibo',save:'guardado de la venta',refresh:'actualización de datos',receipt:'apertura del recibo'})[stage] || 'registro de la venta';
+}
+
+function saleErrorHtmlV829(message, operation) {
+  const stage = saleStageLabelV829(operation?.stage);
+  const id = String(operation?.id || 'sin identificador');
+  return `<div class="nv829SaleError"><strong>No se pudo completar la operación</strong><span>Falla durante: ${escapeHtml(stage)}.</span><p>${escapeHtml(message)}</p><small>ID de control: ${escapeHtml(id)}. No vuelvas a crear otra venta hasta verificar esta misma operación.</small></div>`;
+}
+
+async function verifyCloudSaleV829(saleId) {
+  if (!saleId || !navigator.onLine) return { ok:false, sale:null };
+  try {
+    if (window.findCloudSaleById) return await findCloudSaleById(saleId);
+    const sb = window.getSupabaseClient ? getSupabaseClient() : null;
+    if (!sb) return { ok:false, sale:null };
+    const { data, error } = await sb.from('sales').select('*').eq('id', String(saleId)).maybeSingle();
+    return error ? { ok:false, sale:null, message:messageFromError(error) } : { ok:true, sale:data || null };
+  } catch (error) { return { ok:false, sale:null, message:String(error?.message || error || '') }; }
+}
+
+async function openSaleReceiptSafeV829(sale) {
+  try {
+    if (window.openV7ReceiptPreview) { openV7ReceiptPreview(sale, 'sale'); return {ok:true}; }
+    if (window.openReceiptPreview) { openReceiptPreview(sale); return {ok:true}; }
+    throw new Error('El módulo visual del recibo no está disponible.');
+  } catch (error) {
+    console.error('NV_RECEIPT_PREVIEW_ERROR', error);
+    return {ok:false, message:String(error?.message || error || 'No se pudo abrir el recibo.')};
+  }
 }
 
 function openPaymentMethodSelectorV826(options = {}) {
@@ -622,7 +656,7 @@ function openCheckoutSheet() {
   const draftV827 = _saleDraftV827 || {};
   const preClientV827 = (AppState.clients || []).find(c => String(c.id) === String(draftV827.clientId || '')) || null;
   const initialClientV827 = preClientV827 || AppState.lastClient || null;
-  const operation = { id: uid('sale'), documentNumber: '', client: preClientV827, sale: null, submitting: false, preferredPaymentMethod: String(draftV827.paymentMethod || '') };
+  const operation = { id: uid('sale'), documentNumber: '', client: preClientV827, sale: null, submitting: false, saved: false, stage: 'payment', preferredPaymentMethod: String(draftV827.paymentMethod || '') };
   const html = `
     <h2>Confirmar venta <span class="x" id="closeSheet">✕</span></h2>
     <div class="sectiontitle2"><span>Productos (${saleItemsPreview.length})</span></div>
@@ -638,6 +672,7 @@ function openCheckoutSheet() {
     <div id="ckPaymentSummaryV826">${paymentChoiceSummaryV826(null,total)}</div>
     <div class="v7CashNotice">Al continuar elegirás Efectivo, QR / transferencia o Crédito. El recibo ya no incorpora el QR.</div>
     <div class="v7CashNotice">La operación usa un identificador único. Si se corta la conexión, se verificará primero si la venta ya quedó guardada para evitar duplicarla.</div>
+    <div id="ckSaleErrorV829" class="hidden"></div>
     <div class="actions stickyActions"><button class="btn block" id="confirmSale">Elegir forma de pago</button></div>`;
   openSheet(html, (overlay, close) => {
     $('#closeSheet', overlay).addEventListener('click', () => { if (!operation.submitting) close(); });
@@ -714,6 +749,14 @@ function openCheckoutSheet() {
       const clientName = $('#ck_clientname', overlay).value.trim();
       const clientPhone = $('#ck_clientphone', overlay).value.trim();
       if (!clientName) return showToast('⚠️ Ingresa el nombre del cliente', 'error');
+      if (operation.saved && operation.sale) {
+        btn.disabled = true; btn.textContent = 'Abriendo recibo…';
+        close();
+        const receiptResult = await openSaleReceiptSafeV829(operation.sale);
+        if (!receiptResult.ok) showToast(`La venta está guardada, pero no se pudo abrir el recibo: ${receiptResult.message}`, 'error');
+        _cart = {}; _cartPrices = {}; _saleDraftV827 = null; renderVender();
+        return;
+      }
       if (!operation.client && window.findLikelyDuplicateClientV802) { const match = findLikelyDuplicateClientV802(clientName, clientPhone); if (match && window.confirm(`Encontramos un cliente similar: “${match.client.name}”.\n\n¿Deseas usar ese registro para evitar duplicarlo?`)) operation.client = match.client; }
       if (!operation.paymentChoice) {
         const choice = await openPaymentMethodSelectorV826({ total, clientName, qrUrl: paymentQrSourceV826(), initial: operation.preferredPaymentMethod ? { method: operation.preferredPaymentMethod } : null });
@@ -724,7 +767,8 @@ function openCheckoutSheet() {
         return;
       }
       if (!navigator.onLine) return showToast('Sin internet. La venta no fue registrada.', 'error');
-      operation.submitting = true; btn.disabled = true; btn.textContent = 'Verificando stock y guardando…';
+      operation.submitting = true; operation.stage = 'stock'; btn.disabled = true; btn.textContent = 'Verificando stock y guardando…';
+      const errorBoxV829 = $('#ckSaleErrorV829', overlay); if (errorBoxV829) { errorBoxV829.classList.add('hidden'); errorBoxV829.innerHTML = ''; }
       try {
         const refresh = await syncCloudProductsToLocal();
         if (refresh && refresh.ok === false) throw new Error(refresh.message);
@@ -732,7 +776,9 @@ function openCheckoutSheet() {
           const current = AppState.products.find(product => product.id === item.product.id);
           if (!current || Number(current.stock || 0) < Number(item.qty || 0)) throw new Error(`Stock insuficiente para ${item.product.name}. Actualiza la venta y vuelve a intentarlo.`);
         }
+        operation.stage = 'client';
         if (!operation.client) operation.client = await findOrCreateClientQuick(clientName, clientPhone, customerTypeForSaleV723(_saleType));
+        operation.stage = 'number';
         if (!operation.documentNumber) {
           const result = window.nextDocumentNumberV7 ? await nextDocumentNumberV7('NV-VTA') : { ok: false, message: 'No está disponible la numeración V7.' };
           if (!result.ok) throw new Error(result.message || 'No se pudo generar el número de recibo.');
@@ -800,7 +846,23 @@ function openCheckoutSheet() {
             syncStatus: 'cloud'
           };
         }
-        await DB.put('sales', operation.sale);
+        operation.stage = 'save';
+        if (!operation.saved) {
+          try {
+            await DB.put('sales', operation.sale);
+            operation.saved = true;
+          } catch (saveError) {
+            const verification = await verifyCloudSaleV829(operation.sale.id);
+            if (verification.ok && verification.sale) {
+              operation.saved = true;
+              await DB.put('sales', operation.sale, { silent:true });
+              console.warn('NV_SALE_RECOVERED_AFTER_ERROR', operation.sale.id, saveError);
+            } else {
+              throw saveError;
+            }
+          }
+        }
+        operation.stage = 'refresh';
         await Promise.all([syncCloudProductsToLocal().catch(() => null), window.syncCloudSalesToLocal ? syncCloudSalesToLocal().catch(() => null) : Promise.resolve()]);
         if (!AppState.sales.some(x => x.id === operation.sale.id)) AppState.sales.push(operation.sale);
         await writeAudit('sale:create', 'sales', operation.sale.id, null, operation.sale).catch(() => {});
@@ -817,13 +879,19 @@ function openCheckoutSheet() {
           if (!delivery.ok) deliveryWarning = delivery.message || 'No se pudo crear la entrega pendiente.';
         }
         showToast(deliveryWarning ? `Venta guardada, pero revisa la entrega: ${deliveryWarning}` : (operation.sale.requiresDelivery ? 'Venta guardada y enviada a Entregas pendientes.' : 'Venta registrada en Supabase.'), deliveryWarning ? 'error' : undefined);
+        operation.submitting = false;
         close();
-        if (window.openV7ReceiptPreview) openV7ReceiptPreview(operation.sale, 'sale'); else openReceiptPreview(operation.sale);
+        operation.stage = 'receipt';
+        const receiptResult = await openSaleReceiptSafeV829(operation.sale);
+        if (!receiptResult.ok) showToast(`La venta se guardó, pero no se abrió el recibo: ${receiptResult.message}`, 'error');
         _cart = {}; _cartPrices = {}; _saleDraftV827 = null; renderVender();
       } catch (err) {
-        operation.submitting = false; btn.disabled = false; btn.textContent = 'Reintentar la misma operación';
+        operation.submitting = false; btn.disabled = false; btn.textContent = operation.saved ? 'Abrir recibo guardado' : 'Verificar y reintentar';
         const message = window.messageFromError ? messageFromError(err, 'No se pudo registrar la venta.') : (err.message || 'No se pudo registrar la venta.');
+        const errorBox = $('#ckSaleErrorV829', overlay);
+        if (errorBox) { errorBox.innerHTML = saleErrorHtmlV829(message, operation); errorBox.classList.remove('hidden'); errorBox.scrollIntoView({block:'nearest', behavior:'smooth'}); }
         showToast(message, 'error');
+        console.error('NV_SALE_OPERATION_ERROR', { stage:operation.stage, operationId:operation.id, saved:operation.saved, error:err });
       }
     });
   });
@@ -872,5 +940,7 @@ Object.assign(window, {
   paymentMethodLabelV826,
   paymentStatusLabelV826,
   paymentChoiceSummaryV826,
-  paymentQrSourceV826
+  paymentQrSourceV826,
+  verifyCloudSaleV829,
+  openSaleReceiptSafeV829
 });

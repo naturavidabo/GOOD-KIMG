@@ -1,0 +1,9 @@
+NATURA VIDA V8.2.9 — RESULTADO DE PRUEBAS LOCALES
+
+- Validación sintáctica de JavaScript.
+- Verificación estática de recuperación por ID de venta.
+- Verificación de separación entre guardado y apertura del recibo.
+- Verificación de error persistente con etapa e identificador.
+- Efectivo, QR y crédito convergen en el mismo guardado verificado.
+- Pendiente: prueba real de register_sale_atomic, RLS y recibo en Supabase productivo.
+- Total máximo del repositorio: 99 archivos.

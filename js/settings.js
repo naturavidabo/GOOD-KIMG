@@ -95,7 +95,7 @@ function renderSettings() {
 
     <div class="sectiontitle">Acerca de</div>
     <div class="card settingsCard">
-      <div class="costline">NATURA VIDA — V8.2.8 · Supabase + Realtime + IA operativa supervisada</div>
+      <div class="costline">NATURA VIDA — V8.2.9 · Supabase + Realtime + IA operativa supervisada</div>
       <div class="costline">Sin cola offline automática. Incluye continuidad segura, control financiero, auditoría, reglas comerciales y motor IA protegido por Edge Function.</div>
     </div>
   `;

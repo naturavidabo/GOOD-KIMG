@@ -1,10 +1,10 @@
-/* NATURA VIDA V8.2.8 — respaldo verificable, auditoría, calidad y saneamiento funcional.
+/* NATURA VIDA V8.2.9 — respaldo verificable, auditoría, calidad y saneamiento funcional.
    Todas las correcciones sensibles requieren revisión humana. La validación de
    respaldos funciona como simulación: nunca restaura ni reemplaza Supabase. */
 (() => {
   'use strict';
 
-  const VERSION = '8.2.8';
+  const VERSION = '8.2.9';
   const BACKUP_SCHEMA = 'natura-vida-verified-backup';
   const BACKUP_HISTORY_KEY = 'nv806:backup-history';
   const DRAFT_KEY = 'nv805:safe-draft';
@@ -612,7 +612,7 @@
   }
 
 
-  function buildFunctionalHealthV828() {
+  function buildFunctionalHealthV829() {
     const checks = [
       ['Navegación principal', typeof window.navigateTo === 'function' && typeof window.render === 'function', 'Cambio de pantallas y renderizado general'],
       ['Venta preparada por IA', typeof window.prepareSaleDraftV827 === 'function', 'Carrito, cliente y tipo de venta precargados'],
@@ -623,7 +623,7 @@
       ['Territorio', typeof window.renderTerritoryV801 === 'function' || typeof window.renderTerritoryV800 === 'function', 'Mapa, prospectos y visitas'],
       ['Autocompletado de clientes', typeof window.bindClientAutocompleteV802 === 'function', 'Prevención de duplicados y selección explícita'],
       ['Centro Más', typeof window.renderManagementCenterV770 === 'function', 'Accesos agrupados y tarjetas de módulos'],
-      ['Asistente IA V8.2.8', Boolean(window.__nvAiV828) && typeof window.__nvAiV828.resolveDraftActionV828 === 'function', 'Análisis y preparación supervisada de operaciones'],
+      ['Asistente IA V8.2.9', Boolean(window.__nvAiV829) && typeof window.__nvAiV829.resolveDraftActionV829 === 'function', 'Análisis y preparación supervisada de operaciones'],
       ['Supabase', typeof window.getSupabaseClient === 'function' && Boolean((() => { try { return window.getSupabaseClient(); } catch (_) { return null; } })()), 'Cliente remoto disponible'],
       ['Datos comerciales', Array.isArray(window.AppState?.products) && Array.isArray(window.AppState?.clients) && Array.isArray(window.AppState?.sales), 'Productos, clientes y ventas cargados'],
       ['PWA y caché', 'serviceWorker' in navigator, 'Soporte de instalación y continuidad básica']
@@ -633,11 +633,11 @@
     return { version:VERSION, checkedAt:new Date().toISOString(), rows, passed, total:rows.length, score:rows.length ? Math.round((passed / rows.length) * 100) : 0 };
   }
 
-  function renderFunctionalHealthV828(report) {
-    return `<div class="nv828FunctionHealth">
-      <div class="nv828FunctionSummary"><div><span class="eyebrow">Saneamiento funcional</span><h2>${report.passed}/${report.total} controles disponibles</h2><p>Comprobación preventiva del cableado de las funciones críticas. No modifica información.</p></div><strong>${report.score}%</strong></div>
-      <div class="nv828FunctionRows">${report.rows.map(row => `<article class="${row.ok ? 'ok' : 'fail'}"><span>${row.ok ? '✓' : '!'}</span><div><strong>${esc(row.name)}</strong><small>${esc(row.detail)}</small></div><em>${row.ok ? 'Disponible' : 'Revisar'}</em></article>`).join('')}</div>
-      <button class="btn outline block" id="nv828RecheckFunctions">Volver a comprobar</button>
+  function renderFunctionalHealthV829(report) {
+    return `<div class="nv829FunctionHealth">
+      <div class="nv829FunctionSummary"><div><span class="eyebrow">Saneamiento funcional</span><h2>${report.passed}/${report.total} controles disponibles</h2><p>Comprobación preventiva del cableado de las funciones críticas. No modifica información.</p></div><strong>${report.score}%</strong></div>
+      <div class="nv829FunctionRows">${report.rows.map(row => `<article class="${row.ok ? 'ok' : 'fail'}"><span>${row.ok ? '✓' : '!'}</span><div><strong>${esc(row.name)}</strong><small>${esc(row.detail)}</small></div><em>${row.ok ? 'Disponible' : 'Revisar'}</em></article>`).join('')}</div>
+      <button class="btn outline block" id="nv829RecheckFunctions">Volver a comprobar</button>
     </div>`;
   }
 
@@ -647,7 +647,7 @@
     const main = document.querySelector('#mainArea');
     main.innerHTML = '<div class="loading">Analizando respaldo, auditoría y calidad de datos…</div>';
     const [report, audit] = await Promise.all([buildQualityReport(), fetchAuditRows()]);
-    const functionalHealth = buildFunctionalHealthV828();
+    const functionalHealth = buildFunctionalHealthV829();
     const areas = Object.keys(report.byArea).sort();
     const entities = [...new Set(audit.rows.map(row=>row.entity).filter(Boolean))].sort();
     const demoIssues = report.issues.filter(row=>row.code==='profile_demo');
@@ -655,7 +655,7 @@
 
     main.innerHTML = `
       <section class="nv806Hero">
-        <div><span class="eyebrow">Control administrativo V8.2.8</span><h1>Respaldo, auditoría y calidad</h1><p>Detecta riesgos, valida copias y conserva trazabilidad sin corregir ni eliminar datos automáticamente.</p></div>
+        <div><span class="eyebrow">Control administrativo V8.2.9</span><h1>Respaldo, auditoría y calidad</h1><p>Detecta riesgos, valida copias y conserva trazabilidad sin corregir ni eliminar datos automáticamente.</p></div>
         <span class="nv806Shield">QA</span>
       </section>
       <div class="nv806Metrics">
@@ -666,7 +666,7 @@
         <article><span>Funciones</span><strong>${functionalHealth.passed}/${functionalHealth.total}</strong><small>${functionalHealth.score}% disponible</small></article>
       </div>
 
-      <section class="dashboardPanel nv806Panel">${renderFunctionalHealthV828(functionalHealth)}</section>
+      <section class="dashboardPanel nv806Panel">${renderFunctionalHealthV829(functionalHealth)}</section>
 
       <section class="dashboardPanel nv806Panel">
         <div class="panelHeader"><div><span class="eyebrow">Protección de información</span><h2>Respaldos verificables</h2></div><span class="nv806Pill">Sin restauración automática</span></div>
@@ -690,7 +690,7 @@
         <div class="nv806IssueList">${renderIssueRows(report.issues)}</div>
       </section>
 
-      ${demoIssues.length ? `<section class="dashboardPanel nv806Panel"><div class="panelHeader"><div><span class="eyebrow">Acceso seguro</span><h2>Posibles usuarios demo</h2></div><button class="btn sm outline" id="nv806OpenUsers">Ver todos</button></div><p class="nv806Intro">La V8.2.8 permite bloquear el acceso, no eliminar cuentas. Así se conserva la auditoría y cualquier operación relacionada.</p>${demoIssues.map(row=>{const p=row.meta?.profile||{};return `<div class="nv806UserRow"><div><strong>${esc(p.full_name||p.email||row.entityId)}</strong><small>${esc(p.email||'')} · ${row.meta?.activity||0} registros vinculados</small></div>${String(p.status||'').toLowerCase()==='bloqueado'?'<span class="nv806Blocked">Bloqueado</span>':`<button class="btn sm outline nv806BlockDemo" data-id="${esc(row.entityId)}">Bloquear acceso</button>`}</div>`;}).join('')}</section>` : ''}
+      ${demoIssues.length ? `<section class="dashboardPanel nv806Panel"><div class="panelHeader"><div><span class="eyebrow">Acceso seguro</span><h2>Posibles usuarios demo</h2></div><button class="btn sm outline" id="nv806OpenUsers">Ver todos</button></div><p class="nv806Intro">La V8.2.9 permite bloquear el acceso, no eliminar cuentas. Así se conserva la auditoría y cualquier operación relacionada.</p>${demoIssues.map(row=>{const p=row.meta?.profile||{};return `<div class="nv806UserRow"><div><strong>${esc(p.full_name||p.email||row.entityId)}</strong><small>${esc(p.email||'')} · ${row.meta?.activity||0} registros vinculados</small></div>${String(p.status||'').toLowerCase()==='bloqueado'?'<span class="nv806Blocked">Bloqueado</span>':`<button class="btn sm outline nv806BlockDemo" data-id="${esc(row.entityId)}">Bloquear acceso</button>`}</div>`;}).join('')}</section>` : ''}
 
       <section class="dashboardPanel nv806Panel">
         <div class="panelHeader"><div><span class="eyebrow">Trazabilidad</span><h2>Auditoría de operaciones</h2></div><button class="btn sm outline" id="nv806ExportAudit">Exportar CSV</button></div>
@@ -701,7 +701,7 @@
 
       <section class="dashboardPanel nv806Panel nv806FinalNotice"><strong>Ninguna observación fue corregida automáticamente</strong><p>Las diferencias de inventario, clientes duplicados, cuentas demo y demás hallazgos deben revisarse antes de aplicar cambios. La fuente oficial continúa siendo Supabase.</p><button class="btn outline block" id="nv806BackSettings">Volver a configuración</button></section>`;
 
-    document.querySelector('#nv828RecheckFunctions')?.addEventListener('click', () => renderDataControlCenterV806());
+    document.querySelector('#nv829RecheckFunctions')?.addEventListener('click', () => renderDataControlCenterV806());
     document.querySelector('#nv806CreateBackup')?.addEventListener('click', async event => {
       const btn = event.currentTarget; btn.disabled = true; btn.textContent = 'Generando y verificando…';
       await createVerifiedBackup().catch(error=>window.showToast?.(error?.message || 'No se pudo crear el respaldo.','error'));
@@ -729,8 +729,8 @@
       validateBackupFile, compareBackupWithCurrent, inspectClients,
       inspectProducts, inspectSales, inspectInventory, inspectProfiles,
       inspectOfflineDraft, buildQualityReport, fetchAuditRows,
-      exportIssuesCsv, exportAuditCsv, buildFunctionalHealthV828, renderDataControlCenterV806
+      exportIssuesCsv, exportAuditCsv, buildFunctionalHealthV829, renderDataControlCenterV806
     },
-    buildFunctionalHealthV828, renderDataControlCenterV806
+    buildFunctionalHealthV829, renderDataControlCenterV806
   });
 })();

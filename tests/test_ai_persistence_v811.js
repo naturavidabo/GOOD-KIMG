@@ -52,8 +52,8 @@ sandbox.window.MutationObserver=sandbox.MutationObserver;
 Object.assign(sandbox,sandbox.window);
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../js/v8-ai-assistant.js'),'utf8'),sandbox);
-const api=sandbox.window.__nvAiV828;
-if(!api) throw new Error('API interna V8.2.8 no disponible');
+const api=sandbox.window.__nvAiV829;
+if(!api) throw new Error('API interna V8.2.9 no disponible');
 
 api.clearConversation();
 api.addEntry({role:'user',text:'¿Cómo van las ventas hoy?',at:1});
@@ -75,7 +75,7 @@ const engineResponse={
     ]
   }
 };
-const draft=api.resolveDraftActionV828(question,engineResponse);
+const draft=api.resolveDraftActionV829(question,engineResponse);
 if(draft.type!=='prepare_sale') throw new Error(`Tipo operativo incorrecto: ${draft.type}`);
 if(draft.clientId!=='c-alexia') throw new Error(`Cliente no resuelto: ${draft.clientId}`);
 if(draft.missingFields.length) throw new Error(`Campos no bloqueantes siguieron bloqueando: ${draft.missingFields.join(',')}`);
@@ -83,4 +83,4 @@ const quantities=Object.fromEntries(draft.items.map(x=>[String(x.productName).ma
 if(quantities['200']!==3||quantities['100']!==1||quantities['500']!==2) throw new Error(`Cantidades incorrectas: ${JSON.stringify(quantities)}`);
 const proposals=api.buildActionProposals(question,{...engineResponse,draftAction:draft});
 if(!proposals.some(x=>x.type==='prepare_sale')) throw new Error('No se generó el trabajo de venta preparado');
-console.log('OK V8.2.8: persistencia y venta multítem operativa verificadas');
+console.log('OK V8.2.9: persistencia y venta multítem operativa verificadas');
