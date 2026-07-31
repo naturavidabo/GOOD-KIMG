@@ -1,7 +1,7 @@
 'use strict';
 
 const APP_ID = 'good-king';
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '0.8.0';
 const PUBLIC_CONFIG = window.GOOD_KING_CONFIG || {};
 const OFFICIAL_SUPABASE_URL = String(PUBLIC_CONFIG.supabaseUrl || '').trim();
 const OFFICIAL_SUPABASE_PUBLISHABLE_KEY = String(PUBLIC_CONFIG.supabasePublishableKey || '').replace(/\s+/g,'');
@@ -11,11 +11,11 @@ let runtimeSupabaseConfig = {url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE
 const ADMIN_EMAIL = PUBLIC_CONFIG.administratorEmail || 'goodking.bo@gmail.com';
 const OWNER_EMAIL = PUBLIC_CONFIG.ownerEmail || 'gloria.msg27@gmail.com';
 const DB_NAME = 'goodKingDB';
-const DB_VERSION = 5;
+const DB_VERSION = 7;
 const VERSION_ENDPOINT = './version.json';
 const NETWORK_TIMEOUT_MS = 12000;
-const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal'];
-const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal'];
+const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal', 'recipesLocal', 'recipeItemsLocal', 'marketListsLocal', 'marketListItemsLocal', 'expensesLocal'];
+const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal', 'recipesLocal', 'recipeItemsLocal', 'marketListsLocal', 'marketListItemsLocal', 'expensesLocal'];
 const moneyFormatter = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const DEFAULT_PRODUCTS = [
@@ -118,6 +118,9 @@ function openDB() {
       if (!sales.indexNames.contains('status')) sales.createIndex('status', 'status', { unique: false });
       const queues = transaction.objectStore('syncQueue');
       if (!queues.indexNames.contains('status')) queues.createIndex('status', 'status', { unique: false });
+      const expenses = transaction.objectStore('expensesLocal');
+      if (!expenses.indexNames.contains('date')) expenses.createIndex('date', 'date', { unique: false });
+      if (!expenses.indexNames.contains('category')) expenses.createIndex('category', 'category', { unique: false });
       const backups = transaction.objectStore('backups');
       if (!backups.indexNames.contains('createdAt')) backups.createIndex('createdAt', 'createdAt', { unique: false });
       const clientsStore = transaction.objectStore('clients');
@@ -131,15 +134,19 @@ function openDB() {
       if (!errorStore.indexNames.contains('createdAt')) errorStore.createIndex('createdAt', 'createdAt', { unique: false });
       const remoteStore = transaction.objectStore('remoteSnapshots');
       if (!remoteStore.indexNames.contains('updatedAt')) remoteStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-      if (event.oldVersion < 4) {
-        transaction.objectStore('appMeta').put({
-          id: 'schema',
-          appId: APP_ID,
-          schemaVersion: DB_VERSION,
-          upgradedAt: nowIso(),
-          previousVersion: event.oldVersion
-        });
-      }
+      const recipeItemsStore = transaction.objectStore('recipeItemsLocal');
+      if (!recipeItemsStore.indexNames.contains('recipeId')) recipeItemsStore.createIndex('recipeId', 'recipeId', { unique: false });
+      if (!recipeItemsStore.indexNames.contains('ingredientId')) recipeItemsStore.createIndex('ingredientId', 'ingredientId', { unique: false });
+      const marketItemsStore = transaction.objectStore('marketListItemsLocal');
+      if (!marketItemsStore.indexNames.contains('marketListId')) marketItemsStore.createIndex('marketListId', 'marketListId', { unique: false });
+      if (!marketItemsStore.indexNames.contains('ingredientId')) marketItemsStore.createIndex('ingredientId', 'ingredientId', { unique: false });
+      transaction.objectStore('appMeta').put({
+        id: 'schema',
+        appId: APP_ID,
+        schemaVersion: DB_VERSION,
+        upgradedAt: nowIso(),
+        previousVersion: event.oldVersion
+      });
     };
     request.onsuccess = () => {
       db = request.result;
@@ -1497,7 +1504,7 @@ async function pushQueueItem(item, deviceId) {
   } else if (item.entity==='sales') {
     payload=await ensureSaleItemRemoteIds(payload);
     item.payload=payload;
-    const row={id:payload.id,business_id:businessId,cash_session_id:payload.cashSessionId||null,customer_id:payload.customerId||null,business_date:payload.date,order_number:Number(payload.orderNumber),order_type:payload.orderType==='Para llevar'?'takeaway':'table',payment_method:payload.payment==='QR'?'qr':payload.payment==='Fiado'?'credit':'cash',subtotal:Number(payload.total||0),total:Number(payload.total||0),status:payload.status==='cancelled'?'cancelled':'confirmed',notes:payload.note||null,quick_notes:Array.isArray(payload.quickNotes)?payload.quickNotes:[],cancelled_reason:payload.cancellationReason||null,cancelled_at:payload.cancelledAt||null,created_by:userId,cancelled_by:payload.status==='cancelled'?userId:null,device_id:deviceId,created_at:payload.createdAt,updated_at:payload.updatedAt||nowIso()};
+    const row={id:payload.id,business_id:businessId,cash_session_id:payload.cashSessionId||null,customer_id:payload.customerId||null,business_date:payload.date,order_number:Number(payload.orderNumber),order_type:payload.orderType==='Para llevar'?'takeaway':'table',payment_method:payload.payment==='QR'?'qr':payload.payment==='Fiado'?'credit':'cash',subtotal:Number(payload.total||0),total:Number(payload.total||0),estimated_cost:Number(payload.estimatedCost||0),inventory_consumption:Array.isArray(payload.inventoryConsumption)?payload.inventoryConsumption:[],status:payload.status==='cancelled'?'cancelled':'confirmed',notes:payload.note||null,quick_notes:Array.isArray(payload.quickNotes)?payload.quickNotes:[],cancelled_reason:payload.cancellationReason||null,cancelled_at:payload.cancelledAt||null,created_by:userId,cancelled_by:payload.status==='cancelled'?userId:null,device_id:deviceId,created_at:payload.createdAt,updated_at:payload.updatedAt||nowIso()};
     let {error}=await client.from('sales').upsert(row,{onConflict:'id'}); if(error)throw error;
     const itemRows=(payload.items||[]).map(line=>({id:line.remoteId,business_id:businessId,sale_id:payload.id,product_id:null,product_name:line.name,quantity:Number(line.qty),unit_price:Number(line.price),line_total:Number(line.qty)*Number(line.price),payload:{local_product_id:line.id},updated_at:payload.updatedAt||nowIso()}));
     if(itemRows.length){({error}=await client.from('sale_items').upsert(itemRows,{onConflict:'id'}));if(error)throw error;}
@@ -1543,7 +1550,7 @@ async function pullRemoteCoreData() {
   ]);
   const firstError=[cashError,salesError,customersError,creditsError,productsError].find(Boolean); if(firstError)throw firstError;
   for(const row of cash||[]){if(pendingIds.has(`cashSessions:${row.id}`))continue;await putRecord('cashSessions',{id:row.id,date:row.business_date,openedAt:row.opened_at,openingAmount:Number(row.opening_amount||0),closedAt:row.closed_at,closingAmount:row.counted_cash==null?null:Number(row.counted_cash),expectedAmount:row.expected_cash==null?null:Number(row.expected_cash),difference:row.difference==null?null:Number(row.difference),nextFund:row.next_fund==null?null:Number(row.next_fund),status:row.status,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
-  for(const row of sales||[]){if(pendingIds.has(`sales:${row.id}`))continue;await putRecord('sales',{id:row.id,date:row.business_date,orderNumber:Number(row.order_number),orderType:row.order_type==='takeaway'?'Para llevar':'Para la mesa',payment:row.payment_method==='qr'?'QR':row.payment_method==='credit'?'Fiado':'Efectivo',note:row.notes||'',total:Number(row.total||0),status:row.status==='cancelled'?'cancelled':'confirmed',cashSessionId:row.cash_session_id,customerId:row.customer_id,createdAt:row.created_at,updatedAt:row.updated_at,cancelledAt:row.cancelled_at,cancellationReason:row.cancelled_reason,items:(row.sale_items||[]).filter(i=>!i.deleted_at).map(i=>({id:i.payload?.local_product_id||i.product_id||i.id,remoteId:i.id,name:i.product_name,qty:Number(i.quantity),price:Number(i.unit_price)})),appVersion:APP_VERSION,remote:true});pulled++;}
+  for(const row of sales||[]){if(pendingIds.has(`sales:${row.id}`))continue;await putRecord('sales',{id:row.id,date:row.business_date,orderNumber:Number(row.order_number),orderType:row.order_type==='takeaway'?'Para llevar':'Para la mesa',payment:row.payment_method==='qr'?'QR':row.payment_method==='credit'?'Fiado':'Efectivo',note:row.notes||'',total:Number(row.total||0),estimatedCost:Number(row.estimated_cost||0),inventoryConsumption:Array.isArray(row.inventory_consumption)?row.inventory_consumption:[],status:row.status==='cancelled'?'cancelled':'confirmed',cashSessionId:row.cash_session_id,customerId:row.customer_id,createdAt:row.created_at,updatedAt:row.updated_at,cancelledAt:row.cancelled_at,cancellationReason:row.cancelled_reason,items:(row.sale_items||[]).filter(i=>!i.deleted_at).map(i=>({id:i.payload?.local_product_id||i.product_id||i.id,remoteId:i.id,name:i.product_name,qty:Number(i.quantity),price:Number(i.unit_price)})),appVersion:APP_VERSION,remote:true});pulled++;}
   for(const row of customers||[]){if(pendingIds.has(`clients:${row.id}`))continue;await putRecord('clients',{id:row.id,name:row.name,phone:row.phone||'',note:row.notes||'',creditAllowed:Boolean(row.credit_allowed),balance:Number(row.balance||0),active:row.active!==false,createdAt:row.created_at,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
   for(const row of credits||[]){if(pendingIds.has(`clientPayments:${row.id}`))continue;await putRecord('clientPayments',{id:row.id,clientId:row.customer_id,type:row.movement_type==='charge'?'charge':'payment',amount:Number(row.amount),method:row.payment_method==='qr'?'QR':row.movement_type==='charge'?'Fiado':'Efectivo',detail:row.detail||'',date:String(row.created_at).slice(0,10),createdAt:row.created_at,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
   for(const row of remoteProducts||[]){const localId=row.payload?.local_id||`remote-${row.id}`;if(pendingIds.has(`productCatalog:${localId}`))continue;const category=row.product_categories?.code==='drinks'?'Bebidas':row.product_categories?.code==='extras'?'Extras':'Menú';await putRecord('productCatalog',{id:localId,remoteId:row.id,name:row.name,price:Number(row.price||0),category,desc:row.description||'',badge:row.payload?.badge||'Good King',emoji:row.icon||'🍽️',status:row.availability==='sold_out'?'soldout':row.availability==='low_stock'?'low':'available',active:row.active!==false,sortOrder:Number(row.sort_order||0),createdAt:row.created_at,updatedAt:row.updated_at,appVersion:APP_VERSION,remote:true});pulled++;}
@@ -1826,7 +1833,7 @@ async function exportDiagnostics() {
 
 async function renderSettingsModule() {
   const counts = {};
-  for (const store of ['sales','cashSessions','movements','syncQueue','auditLogs','backups','clients','clientPayments','productCatalog','appErrors']) counts[store] = await countRecords(store);
+  for (const store of ['sales','cashSessions','movements','syncQueue','auditLogs','backups','clients','clientPayments','productCatalog','inventoryIngredients','purchasesLocal','expensesLocal','recipesLocal','marketListsLocal','appErrors']) counts[store] = await countRecords(store);
   const backups = (await getAllRecords('backups')).sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   const health = await getRecord('appMeta','last-health-check');
   const storage = await storageState();
@@ -1844,7 +1851,7 @@ async function renderSettingsModule() {
     <section class="maintenance-card"><h3>Supabase y acceso remoto</h3><p>${authContext ? `${escapeHTML(authContext.displayName)} · ${escapeHTML(roleLabel(authContext.role))} · ${authContext.offline ? 'modo local':'sesión autenticada'}` : 'Sin sesión autenticada.'}</p><div class="button-row"><button id="configureSupabaseBtn" class="secondary-action">Ver conexión</button><button id="syncNowBtn" class="button-light" ${!supabase.enabled || !authContext || authContext.offline ? 'disabled':''}>Sincronizar ahora</button></div><small>${pending} evento(s) por enviar · ${lastSync?.checkedAt ? `última sincronización ${new Date(lastSync.checkedAt).toLocaleString('es-BO')}` : 'todavía no se sincronizó en esta versión'}</small></section>
     <section class="maintenance-card"><h3>Verificación integral</h3><p>Revisa duplicados, totales, cajas, clientes, catálogo y cola de sincronización.</p><div class="button-row"><button id="verifyDataBtn" class="secondary-action">Verificar ahora</button><button id="exportDiagnosticsBtn" class="button-light">Descargar diagnóstico</button></div><small>${health ? `Última revisión: ${new Date(health.checkedAt).toLocaleString('es-BO')} · ${health.errors.length} error(es)` : 'Todavía no se realizó una revisión.'}</small></section>
     <section class="maintenance-card"><h3>Protección del navegador</h3><p>${storage.persisted ? 'El almacenamiento está marcado como persistente.' : 'Solicita protección y conserva copias descargadas.'}</p><button id="persistStorageBtn" class="secondary-action">Solicitar protección</button><small>Uso: ${usageMb} MB de ${quotaMb} MB estimados.</small></section>
-    <section class="maintenance-card"><h3>Estado de registros</h3><div class="record-counts"><span>Ventas <b>${counts.sales}</b></span><span>Cajas <b>${counts.cashSessions}</b></span><span>Clientes <b>${counts.clients}</b></span><span>Catálogo <b>${counts.productCatalog}</b></span><span>Pendientes sync <b>${pending}</b></span><span>Errores registrados <b>${counts.appErrors}</b></span></div></section>
+    <section class="maintenance-card"><h3>Estado de registros</h3><div class="record-counts"><span>Ventas <b>${counts.sales}</b></span><span>Cajas <b>${counts.cashSessions}</b></span><span>Clientes <b>${counts.clients}</b></span><span>Catálogo <b>${counts.productCatalog}</b></span><span>Inventario <b>${counts.inventoryIngredients}</b></span><span>Compras <b>${counts.purchasesLocal}</b></span><span>Gastos <b>${counts.expensesLocal}</b></span><span>Recetas <b>${counts.recipesLocal}</b></span><span>Listas mercado <b>${counts.marketListsLocal}</b></span><span>Pendientes sync <b>${pending}</b></span><span>Errores registrados <b>${counts.appErrors}</b></span></div></section>
   </div>`;
 }
 
@@ -1869,7 +1876,7 @@ async function renderModule(key) {
   } else {
     body = `<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${escapeHTML(module[3])}</p><strong>No se habilitarán botones ficticios.</strong></div><div class="module-card"><h3>Persistencia local</h3><p>El módulo utilizará IndexedDB y movimientos auditables.</p><strong>Base local y remota estabilizada en V0.5</strong></div><div class="module-card"><h3>Sincronización autenticada</h3><p>Los cambios se guardan primero localmente y después se envían a Supabase.</p><strong>Sin depender de internet para operar</strong></div></div>`;
   }
-  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.6.0</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
+  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.8.0</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
 
   $('moduleContent').querySelectorAll('.reprint-sale').forEach(button => button.onclick = async () => {
     const sale = await getRecord('sales', button.dataset.id);
@@ -1906,7 +1913,7 @@ async function registerServiceWorker() {
     return;
   }
   try {
-    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.6.0', { scope:'./', updateViaCache:'none' });
+    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.8.0', { scope:'./', updateViaCache:'none' });
     if (swRegistration.waiting) revealUpdateReady(swRegistration);
     swRegistration.addEventListener('updatefound', () => {
       const worker = swRegistration.installing;
@@ -2039,7 +2046,7 @@ async function init() {
   await bootstrapAuthentication();
   const initialModule = location.hash.replace('#','');
   if (initialModule && initialModule !== 'sales') setTimeout(()=>navigate(initialModule),200);
-  setTimeout(() => createAutoBackup('migración e inicio de V0.5').catch(console.error), 1800);
+  setTimeout(() => createAutoBackup('migración e inicio de V0.8.0').catch(console.error), 1800);
   setTimeout(() => syncPendingRecords().catch(console.error), 3200);
 }
 

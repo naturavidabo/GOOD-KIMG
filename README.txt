@@ -1,22 +1,12 @@
-GOOD KING v0.1 - PROTOTIPO FUNCIONAL
+GOOD KING V0.8.0
 
-Incluye:
-- Diseño adaptable para computadora y celular.
-- Apertura y cierre de caja.
-- Fondo inicial y fondo para el día siguiente.
-- Venta rápida visual.
-- Numeración diaria desde 001.
-- Efectivo, QR y fiado.
-- Confirmación manual de QR.
-- Comanda + ticket pequeño del cliente.
-- Resumen diario.
-- Funcionamiento básico sin internet mediante caché.
-- Datos guardados localmente en el navegador.
+Actualización directa desde la versión publicada. Incluye las correcciones internas de V0.7.0 y consolida inventario, compras, gastos, reportes, usuarios, respaldos y sincronización Supabase.
 
-IMPORTANTE:
-Los precios e imágenes de productos son provisionales y editables.
-Esta versión es una base local de demostración. La próxima fase incorporará base de datos, usuarios, inventario, compras, fiados completos y acceso remoto.
+ORDEN SEGURO:
+1. Descargar respaldo desde la versión publicada.
+2. Ejecutar supabase/06_good_king_v080_migration.sql.
+3. Ejecutar supabase/07_good_king_v080_verification.sql.
+4. Subir todos los archivos de esta carpeta a la raíz de GitHub Pages.
+5. Abrir la app, aceptar la actualización y ejecutar Verificar ahora.
 
-Para probar:
-1. Abrir index.html en Chrome o Edge.
-2. Para que el modo sin conexión funcione correctamente, servir la carpeta mediante un servidor local.
+No borrar datos del sitio y no desinstalar la PWA para actualizar.

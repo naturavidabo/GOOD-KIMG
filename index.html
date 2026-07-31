@@ -9,11 +9,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Good King" />
   <meta name="description" content="Good King - ventas, caja e inventario" />
-  <title>Good King V0.6.0</title>
-  <link rel="manifest" href="manifest.webmanifest?v=0.6.0" />
+  <title>Good King V0.8.0</title>
+  <link rel="manifest" href="manifest.webmanifest?v=0.8.0" />
   <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon-64.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
-  <link rel="stylesheet" href="styles.css?v=0.6.0" />
+  <link rel="stylesheet" href="styles.css?v=0.8.0" />
 </head>
 <body>
   <section id="authGate" class="auth-gate" aria-live="polite">
@@ -171,7 +171,7 @@
         <button id="closeMenuBtn" aria-label="Cerrar menú">×</button>
       </div>
       <div id="sideLinks" class="side-links"></div>
-      <div class="side-footer"><span>V0.6.0 · Inventario, compras y fotos habilitados</span><button id="logoutBtn" class="side-logout" hidden>Cerrar sesión</button></div>
+      <div class="side-footer"><span>V0.8.0 · Inventario, gastos, reportes y sincronización consolidada</span><button id="logoutBtn" class="side-logout" hidden>Cerrar sesión</button></div>
     </aside>
     <div id="menuBackdrop" class="backdrop"></div>
 
@@ -288,7 +288,7 @@
         <div class="form-two"><label>Distintivo<input id="productBadge" maxlength="30" /></label><label>Ícono / emoji<input id="productEmoji" maxlength="8" /></label></div>
         <div class="product-photo-editor">
           <div id="productImagePreview" class="product-image-preview"><span>Sin fotografía</span></div>
-          <div><label>Fotografía del producto<input id="productImageFile" type="file" accept="image/jpeg,image/png,image/webp" /></label><small>JPG, PNG o WebP. Máximo 5 MB. Se guarda en Supabase Storage.</small><button type="button" id="removeProductImage" class="text-button">Quitar fotografía</button></div>
+          <div><label>Fotografía del producto<input id="productImageFile" type="file" accept="image/jpeg,image/png,image/webp" /></label><small>JPG, PNG o WebP. La fotografía se optimiza automáticamente a formato 4:3 y se guarda en Supabase Storage. Máximo 5 MB.</small><button type="button" id="removeProductImage" class="text-button">Quitar fotografía</button></div>
         </div>
         <label>Estado<select id="productStatus"><option value="available">Disponible</option><option value="low">Poco stock</option><option value="soldout">Agotado</option></select></label>
         <label class="check-row"><input id="productActive" type="checkbox" checked /> Mostrar en la pantalla de venta</label>
@@ -324,6 +324,7 @@
 
     <dialog id="purchaseDialog">
       <form id="purchaseForm" class="dialog-card form-dialog wide-dialog">
+        <input id="purchaseMarketItemId" type="hidden" />
         <div class="dialog-title-row"><div><p class="eyebrow">Compras</p><h2>Registrar compra</h2></div><button type="button" id="dismissPurchase" aria-label="Cerrar">×</button></div>
         <label>Insumo<select id="purchaseIngredient" required></select></label>
         <div class="form-two"><label>Cantidad comprada<input id="purchaseQuantity" type="number" min="0.0001" step="0.01" required /></label><label id="purchaseUnitLabel">Unidad de compra</label></div>
@@ -332,6 +333,49 @@
         <div id="purchaseConversionPreview" class="notice-box"></div>
         <label>Observación<textarea id="purchaseNotes" maxlength="220" rows="2"></textarea></label>
         <div class="dialog-actions"><button type="button" id="cancelPurchase" class="button-light">Cancelar</button><button type="submit" class="primary-action">Registrar compra e ingresar stock</button></div>
+      </form>
+    </dialog>
+
+
+
+    <dialog id="recipeDialog">
+      <form id="recipeForm" class="dialog-card form-dialog wide-dialog">
+        <div class="dialog-title-row"><div><p class="eyebrow">Recetas y costos</p><h2 id="recipeDialogTitle">Configurar receta</h2></div><button type="button" id="dismissRecipe" aria-label="Cerrar">×</button></div>
+        <input id="recipeId" type="hidden" />
+        <label>Producto<select id="recipeProduct" required></select></label>
+        <div class="form-two"><label>Rendimiento / porciones<input id="recipeYield" type="number" min="0.001" step="0.001" value="1" required /></label><label>Costos indirectos del lote (Bs)<input id="recipeIndirectCost" type="number" min="0" step="0.01" value="0" required /></label></div>
+        <div class="recipe-lines-head"><div><b>Ingredientes de la receta</b><small>Las cantidades se expresan en la unidad de control del inventario.</small></div><button type="button" id="addRecipeLine" class="secondary-action">＋ Agregar insumo</button></div>
+        <div id="recipeLines" class="recipe-lines"></div>
+        <div id="recipeCostPreview" class="recipe-cost-preview"></div>
+        <div class="dialog-actions"><button type="button" id="cancelRecipe" class="button-light">Cancelar</button><button type="submit" class="primary-action">Guardar receta</button></div>
+      </form>
+    </dialog>
+
+    <dialog id="marketItemDialog">
+      <form id="marketItemForm" class="dialog-card form-dialog">
+        <div class="dialog-title-row"><div><p class="eyebrow">Lista de mercado</p><h2 id="marketItemTitle">Agregar producto</h2></div><button type="button" id="dismissMarketItem" aria-label="Cerrar">×</button></div>
+        <input id="marketItemId" type="hidden" />
+        <input id="marketListId" type="hidden" />
+        <label>Vincular con insumo<select id="marketIngredient"><option value="">Artículo manual</option></select></label>
+        <label>Descripción<input id="marketDescription" maxlength="100" required placeholder="Ej.: Papa, bolsas, gas" /></label>
+        <div class="form-two"><label>Cantidad prevista<input id="marketPlannedQuantity" type="number" min="0" step="0.01" value="1" /></label><label>Unidad de compra<input id="marketPurchaseUnit" maxlength="40" placeholder="Ej.: arroba, paquete, caja" /></label></div>
+        <label>Nota<textarea id="marketItemNote" maxlength="180" rows="2"></textarea></label>
+        <div class="dialog-actions"><button type="button" id="cancelMarketItem" class="button-light">Cancelar</button><button type="submit" class="primary-action">Guardar en la lista</button></div>
+      </form>
+    </dialog>
+
+
+    <dialog id="expenseDialog">
+      <form id="expenseForm" class="dialog-card form-dialog wide-dialog">
+        <div class="dialog-title-row"><div><p class="eyebrow">Gastos del negocio</p><h2 id="expenseDialogTitle">Registrar gasto</h2></div><button type="button" id="dismissExpense" aria-label="Cerrar">×</button></div>
+        <input id="expenseId" type="hidden" />
+        <div class="form-two"><label>Fecha<input id="expenseDate" type="date" required /></label><label>Categoría<select id="expenseCategory" required></select></label></div>
+        <label>Descripción<input id="expenseDescription" maxlength="120" required placeholder="Ej.: recarga de gas, pago de luz" /></label>
+        <div class="form-two"><label>Monto (Bs)<input id="expenseAmount" type="number" min="0.01" step="0.01" required /></label><label>Forma de pago<select id="expensePaymentMethod"><option value="cash">Efectivo de caja</option><option value="qr">QR del negocio</option><option value="external">Dinero externo</option></select></label></div>
+        <label class="check-row"><input id="expenseRecurring" type="checkbox" /> Gasto recurrente</label>
+        <label id="expenseRecurrenceRow" hidden>Frecuencia<select id="expenseRecurrence"><option value="monthly">Mensual</option><option value="weekly">Semanal</option><option value="quarterly">Trimestral</option><option value="annual">Anual</option></select></label>
+        <div class="notice-box">Los gastos pagados en efectivo se descuentan del efectivo esperado de la caja. Los pagos QR y externos afectan la ganancia, pero no el efectivo físico.</div>
+        <div class="dialog-actions"><button type="button" id="cancelExpense" class="button-light">Cancelar</button><button type="submit" class="primary-action">Guardar gasto</button></div>
       </form>
     </dialog>
 
@@ -351,9 +395,11 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <script src="config.js?v=0.6.0"></script>
+  <script src="config.js?v=0.8.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.109.0" crossorigin="anonymous"></script>
-  <script src="app.js?v=0.6.0"></script>
-  <script src="v06.js?v=0.6.0"></script>
+  <script src="app.js?v=0.8.0"></script>
+  <script src="v06.js?v=0.8.0"></script>
+  <script src="v07.js?v=0.8.0"></script>
+  <script src="v08.js?v=0.8.0"></script>
 </body>
 </html>
