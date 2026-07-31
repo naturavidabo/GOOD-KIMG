@@ -90,13 +90,12 @@
     const ownerName = documentOwnerName(ownerId, documentData.sellerName, documentData);
     const receiptMethod = String(documentData.paymentMethod || (Number(documentData.pendingBalance || 0) > .009 ? 'credit' : 'cash'));
     const receiptMethodLabel = window.paymentMethodLabelV826 ? paymentMethodLabelV826(receiptMethod) : ({cash:'Efectivo',qr:'QR / transferencia',credit:'A crédito'}[receiptMethod] || 'No especificado');
-    const receiptStatusLabel = window.paymentStatusLabelV826 ? paymentStatusLabelV826(documentData.paymentStatus) : (documentData.paymentStatus || 'Pagado');
     const logo = await loadImageV7(AppState.settings.logo || 'img/brand/natura-vida-logo.jpeg');
     const width = 720;
     const itemHeight = 42;
-    const paymentBlock = 170;
+    const qrBlock = 105;
     const messageBlock = 72;
-    const height = 420 + items.length * itemHeight + paymentBlock + messageBlock;
+    const height = 420 + items.length * itemHeight + qrBlock + messageBlock;
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
@@ -131,7 +130,7 @@
     ctx.fillText(ownerName, logo ? 150 : 58, 82);
     ctx.font = '500 15px Inter, Arial';
     ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.fillText(isPendingOrder ? 'Orden pendiente de pago' : (isPartialSale ? 'Recibo con saldo pendiente' : (kind === 'order' ? 'Comprobante de compra' : (receiptMethod === 'credit' ? 'Comprobante de venta a crédito' : receiptMethod === 'qr' ? 'Recibo de pago QR / transferencia' : 'Recibo de pago en efectivo'))), logo ? 150 : 58, 108);
+    ctx.fillText(isPendingOrder ? 'Orden pendiente de pago' : (isPartialSale ? 'Recibo con saldo pendiente' : (kind === 'order' ? 'Comprobante de compra' : (receiptMethod === 'credit' ? 'Comprobante de venta a crédito' : receiptMethod === 'qr' ? 'Recibo de pago QR / transferencia' : 'Recibo de venta al contado'))), logo ? 150 : 58, 108);
     ctx.font = '700 16px JetBrains Mono, monospace';
     ctx.fillText(documentData.receiptNumber || documentData.orderNumber || documentData.documentNumber || 'DOCUMENTO', logo ? 150 : 58, 136);
 
@@ -152,7 +151,7 @@
     ctx.fillText(new Date(documentData.paidAt || documentData.date || documentData.createdAt || Date.now()).toLocaleString('es-BO'), width - 58, y + 12);
     ctx.fillStyle = '#0a7a45';
     ctx.font = '800 18px Inter, Arial';
-    ctx.fillText(isPendingOrder ? 'PENDIENTE DE PAGO' : (isPartialSale ? 'PAGO PARCIAL' : (receiptMethod === 'credit' ? 'VENTA A CRÉDITO' : receiptMethod === 'qr' ? 'PAGO DIGITAL' : 'PAGO EN EFECTIVO')), width - 58, y + 43);
+    ctx.fillText(isPendingOrder ? 'PENDIENTE DE PAGO' : (isPartialSale ? 'PAGO PARCIAL' : (receiptMethod === 'credit' ? 'VENTA A CRÉDITO' : receiptMethod === 'qr' ? 'PAGO DIGITAL' : 'PAGO AL CONTADO')), width - 58, y + 43);
     ctx.textAlign = 'left';
 
     y += 95;
@@ -206,13 +205,17 @@
     }
     y += 52;
 
-    ctx.fillStyle = '#f2f8f4'; roundRectV7(ctx, 54, y + 12, width - 108, 116, 18); ctx.fill();
-    ctx.fillStyle = '#60766b'; ctx.font = '700 13px Arial'; ctx.fillText('FORMA DE PAGO', 76, y + 45);
-    ctx.fillStyle = '#075b35'; ctx.font = '800 21px Arial'; ctx.fillText(receiptMethodLabel, 76, y + 76);
-    ctx.textAlign = 'right'; ctx.font = '700 14px Arial'; ctx.fillText(receiptStatusLabel, width - 76, y + 48);
-    if (documentData.paymentReference) { ctx.fillStyle = '#60766b'; ctx.font = '500 12px monospace'; ctx.fillText(`Ref. ${String(documentData.paymentReference).slice(0,28)}`, width - 76, y + 78); }
-    ctx.textAlign = 'left'; ctx.fillStyle = '#60766b'; ctx.font = '500 13px Arial'; ctx.fillText('Gracias por su compra.', 76, y + 108);
-    y += 150;
+    ctx.fillStyle = '#4f6b5e';
+    ctx.font = '600 16px Inter, Arial';
+    wrapText(ctx, 'Gracias por su compra.', 58, y + 8, width - 116, 23, 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#315c47';
+    ctx.font = '700 14px Inter, Arial';
+    ctx.fillText(`Forma de pago: ${receiptMethodLabel}`, width - 58, y + 8);
+    ctx.textAlign = 'left';
+    y += 50;
+
+    const customReceiptMessage = String(ownerProfile.receiptMessage || '').trim();
     const closingMessage = customReceiptMessage && !/(gracias|preferencia|confiar|consulta|escanea|pago)/i.test(customReceiptMessage)
       ? customReceiptMessage
       : 'Gracias por confiar en Natura Vida Bolivia.';
