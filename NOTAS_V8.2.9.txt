@@ -1,9 +1,0 @@
-NATURA VIDA V8.2.9 — RECIBOS RECUPERABLES Y DIAGNÓSTICO DE VENTAS
-
-- El recibo se abre solo después de confirmar que la venta existe en Supabase.
-- Si la respuesta de guardado se pierde, la app consulta el mismo ID y recupera la operación sin duplicarla.
-- Si la venta fue guardada y solo falla la vista del recibo, no se vuelve a registrar la venta.
-- Los errores de guardado quedan visibles dentro del formulario con etapa e ID de control.
-- Efectivo, QR y crédito usan la misma ruta verificada de persistencia.
-- El preflight SQL comprueba las funciones register_sale_atomic y nv801_register_linked_sale_atomic.
-- La validación real contra Supabase productivo sigue siendo obligatoria.
