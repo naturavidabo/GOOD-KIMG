@@ -1,0 +1,56 @@
+name: Apply Good King V0.9.1
+
+on:
+  push:
+    branches: [release-v0.9.1]
+    paths:
+      - '.github/workflows/apply-v091.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release-v0.9.1
+          fetch-depth: 0
+
+      - name: Apply conservative hotfix
+        run: python tools/apply_v091.py
+
+      - name: Validate JavaScript and package
+        run: |
+          node --check app.js
+          node --check v06.js
+          node --check v07.js
+          node --check v08.js
+          node --check v09.js
+          node --check vendor/supabase-lite.js
+          python - <<'PY'
+          import json,re
+          from pathlib import Path
+          json.load(open('manifest.webmanifest'))
+          assert json.load(open('version.json'))['version']=='0.9.1'
+          html=Path('index.html').read_text()
+          ids=re.findall(r'\bid="([^"]+)"',html)
+          assert len(ids)==len(set(ids)), 'HTML contiene IDs duplicados'
+          assert 'cdn.jsdelivr.net/npm/@supabase/supabase-js' not in html
+          assert 'vendor/supabase-lite.js?v=0.9.1' in html
+          assert "const DB_VERSION = 8;" in Path('app.js').read_text()
+          print('V0.9.1 validada sin cambios destructivos de IndexedDB')
+          PY
+
+      - name: Commit validated V0.9.1
+        run: |
+          git config user.name 'Good King Release Bot'
+          git config user.email 'good-king-release@users.noreply.github.com'
+          git rm tools/apply_v091.py .github/workflows/apply-v091.yml
+          git add app.js index.html styles.css v09.js
+          git diff --cached --check
+          git commit -m 'Good King V0.9.1 hotfix de acceso y PWA'
+          git push origin HEAD:release-v0.9.1
