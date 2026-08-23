@@ -1,5 +1,5 @@
 {
-  "version": "0.9.0",
-  "build": "2026-08-08-v090",
-  "notes": "Control remoto, sincronización robusta, protección de conflictos, permisos y diagnóstico operativo."
+  "version": "0.9.1",
+  "build": "2026-08-22-v091",
+  "notes": "Hotfix de acceso: cliente Supabase local, configuración autorreparable, actualización PWA atómica y diagnóstico por etapas."
 }

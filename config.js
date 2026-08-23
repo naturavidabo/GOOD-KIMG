@@ -1,7 +1,9 @@
-/* Good King · configuración pública verificada del cliente.
-   Clave publishable: segura para navegador junto con Auth + RLS.
+/* Good King V0.9.1 · configuración pública administrada.
+   La publishable key puede vivir en el navegador con Auth + RLS.
    Nunca colocar service_role, secret key ni contraseña de base de datos aquí. */
 window.GOOD_KING_CONFIG = Object.freeze({
+  configVersion: '0.9.1',
+  build: '2026-08-22-v091',
   supabaseUrl: 'https://iufpbpwkvrrvbolfnptw.supabase.co',
   supabasePublishableKey: 'sb_publishable_jav-XXPrPefkCbBawLrIzw_tqojhw4p',
   supabaseProjectRef: 'iufpbpwkvrrvbolfnptw',
