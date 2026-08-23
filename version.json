@@ -1,5 +1,5 @@
 {
-  "version": "0.9.1",
-  "build": "2026-08-22-v091",
-  "notes": "Hotfix de acceso: cliente Supabase local, configuración autorreparable, actualización PWA atómica y diagnóstico por etapas."
+  "version": "0.9.2",
+  "build": "2026-08-23-v092",
+  "notes": "Estabilización: migraciones V0.8/V0.9 verificadas, estado real de Supabase visible, sincronización priorizada y seguridad reforzada para inventario."
 }
