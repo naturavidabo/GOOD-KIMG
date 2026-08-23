@@ -17,3 +17,12 @@
 - Inventario, compras, gastos y reportes consolidados.
 - Consumo/reversión de inventario por venta.
 - Sincronización ampliada con Supabase.
+
+## V0.9.4 — Caja, tickets y operación de insumos
+- Monto recibido y cambio automático para pagos en efectivo.
+- Dos tickets: comanda de cocina y comprobante de cliente.
+- Prioridad visual para número, Mesa/Llevar e ítems de cocina.
+- Carrito ampliado y desplazamiento visible en PC; mejor uso vertical en celular.
+- Acceso Receta/Costos desde Productos preparados.
+- Lista de mercado automática basada en stock mínimo, con actualización tras ventas.
+- No modifica DB_VERSION; goodKingDB permanece en versión 8.
