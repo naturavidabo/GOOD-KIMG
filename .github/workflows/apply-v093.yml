@@ -1,5 +1,6 @@
 name: Apply Good King V0.9.3
 
+# Trigger de publicación validada V0.9.3
 on:
   push:
     branches: [release-v0.9.3]
@@ -20,10 +21,8 @@ jobs:
         with:
           ref: release-v0.9.3
           fetch-depth: 0
-
       - name: Apply V0.9.3
         run: python tools/apply_v093.py
-
       - name: Validate JavaScript, manifest and local-first safety
         run: |
           node --check app.js
@@ -51,7 +50,6 @@ jobs:
           assert 'good-king-v093-shell' in Path('sw.js').read_text()
           print('Validación V0.9.3 OK; goodKingDB permanece v8')
           PY
-
       - name: Regenerate checksums and commit validated release
         run: |
           find . -type f ! -path './.git/*' ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
