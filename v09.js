@@ -1,6 +1,6 @@
 'use strict';
 
-const V09_VERSION = '0.9.0';
+const V09_VERSION = '0.9.1';
 const originalRenderModuleV09 = renderModule;
 const originalPullRemoteCoreDataV09 = pullRemoteCoreData;
 const originalRefreshStatusV09 = refreshStatus;
@@ -416,7 +416,7 @@ renderModule = async function(key) {
 function patchV09Ui() {
   document.title = `Good King V${V09_VERSION}`;
   const side = document.querySelector('.side-footer span');
-  if (side) side.textContent = `V${V09_VERSION} · Operación integrada, control remoto y sincronización reforzada`;
+  if (side) side.textContent = `V${V09_VERSION} · Hotfix de acceso, PWA y sincronización`;
   const meta = document.querySelector('meta[name="description"]');
   if (meta) meta.setAttribute('content','Good King - ventas, caja, inventario, compras y control remoto');
 }

@@ -1,8 +1,10 @@
 'use strict';
 
 const APP_ID = 'good-king';
-const APP_VERSION = '0.9.0';
+const APP_VERSION = '0.9.1';
 const PUBLIC_CONFIG = window.GOOD_KING_CONFIG || {};
+const PUBLIC_CONFIG_VERSION = String(PUBLIC_CONFIG.configVersion || 'unknown');
+const PUBLIC_CONFIG_BUILD = String(PUBLIC_CONFIG.build || 'unknown');
 const OFFICIAL_SUPABASE_URL = String(PUBLIC_CONFIG.supabaseUrl || '').trim();
 const OFFICIAL_SUPABASE_PUBLISHABLE_KEY = String(PUBLIC_CONFIG.supabasePublishableKey || '').replace(/\s+/g,'');
 const OFFICIAL_SUPABASE_PROJECT_REF = PUBLIC_CONFIG.supabaseProjectRef || 'iufpbpwkvrrvbolfnptw';
@@ -13,7 +15,7 @@ const OWNER_EMAIL = PUBLIC_CONFIG.ownerEmail || 'gloria.msg27@gmail.com';
 const DB_NAME = 'goodKingDB';
 const DB_VERSION = 8;
 const VERSION_ENDPOINT = './version.json';
-const NETWORK_TIMEOUT_MS = 12000;
+const NETWORK_TIMEOUT_MS = 15000;
 const STORE_NAMES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'backups', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal', 'recipesLocal', 'recipeItemsLocal', 'marketListsLocal', 'marketListItemsLocal', 'expensesLocal', 'syncConflicts'];
 const EXPORT_STORES = ['settings', 'cashSessions', 'sales', 'movements', 'syncQueue', 'auditLogs', 'appMeta', 'clients', 'clientPayments', 'productCatalog', 'appErrors', 'remoteSnapshots', 'inventoryIngredients', 'inventoryMovementsLocal', 'purchasesLocal', 'purchaseItemsLocal', 'recipesLocal', 'recipeItemsLocal', 'marketListsLocal', 'marketListItemsLocal', 'expensesLocal', 'syncConflicts'];
 const moneyFormatter = new Intl.NumberFormat('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1880,7 +1882,7 @@ async function renderModule(key) {
   } else {
     body = `<div class="module-grid"><div class="module-card"><h3>Estructura preparada</h3><p>${escapeHTML(module[3])}</p><strong>No se habilitarán botones ficticios.</strong></div><div class="module-card"><h3>Persistencia local</h3><p>El módulo utilizará IndexedDB y movimientos auditables.</p><strong>Base local y remota estabilizada en V0.5</strong></div><div class="module-card"><h3>Sincronización autenticada</h3><p>Los cambios se guardan primero localmente y después se envían a Supabase.</p><strong>Sin depender de internet para operar</strong></div></div>`;
   }
-  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.9.0</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
+  $('moduleContent').innerHTML = `<div class="module-hero"><p class="eyebrow" style="color:#ffd54d">Good King V0.9.1</p><h1>${escapeHTML(module[2])}</h1><p>${escapeHTML(module[3])}</p></div>${body}`;
 
   $('moduleContent').querySelectorAll('.reprint-sale').forEach(button => button.onclick = async () => {
     const sale = await getRecord('sales', button.dataset.id);
@@ -1917,7 +1919,7 @@ async function registerServiceWorker() {
     return;
   }
   try {
-    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.9.0', { scope:'./', updateViaCache:'none' });
+    swRegistration = await navigator.serviceWorker.register('./sw.js?v=0.9.1', { scope:'./', updateViaCache:'none' });
     if (swRegistration.waiting) revealUpdateReady(swRegistration);
     swRegistration.addEventListener('updatefound', () => {
       const worker = swRegistration.installing;
@@ -2050,9 +2052,62 @@ async function init() {
   await bootstrapAuthentication();
   const initialModule = location.hash.replace('#','');
   if (initialModule && initialModule !== 'sales') setTimeout(()=>navigate(initialModule),200);
-  setTimeout(() => createAutoBackup('migración e inicio de V0.9.0').catch(console.error), 1800);
+  setTimeout(() => createAutoBackup('migración e inicio de V0.9.1').catch(console.error), 1800);
   setTimeout(() => syncPendingRecords().catch(console.error), 3200);
 }
+
+
+/* V0.9.1 HOTFIX: acceso resiliente y reparación PWA acotada a Good King. */
+function getGoodKingServiceWorkersV091(){
+  if(!('serviceWorker' in navigator)) return Promise.resolve([]);
+  return navigator.serviceWorker.getRegistration('./').then(r=>r?[r]:[]);
+}
+friendlyConnectionError = function(error){
+  const text=String(error?.message||error||'').toLowerCase(), status=Number(error?.status||0);
+  if(error?.name==='AbortError') return `Supabase no respondió dentro de 15 segundos. Proyecto: ${runtimeSupabaseConfig.projectRef||OFFICIAL_SUPABASE_PROJECT_REF}. Puede estar pausado o reactivándose.`;
+  if(isFetchFailure(error)) return `No se pudo contactar al proyecto ${runtimeSupabaseConfig.projectRef||OFFICIAL_SUPABASE_PROJECT_REF}. Puede estar pausado, sin red o bloqueado temporalmente. Ejecuta “Diagnosticar conexión”.`;
+  if(status===401||status===403||text.includes('invalid api key')||text.includes('apikey')) return 'Supabase rechazó la clave pública o el acceso. Usa “Restablecer conexión oficial” y vuelve a diagnosticar.';
+  if(text.includes('invalid login credentials')||text.includes('invalid credentials')) return 'Correo o contraseña incorrectos. La conexión con Supabase sí respondió.';
+  if(text.includes('email not confirmed')) return 'El correo existe, pero todavía no está confirmado en Supabase Auth.';
+  return String(error?.message||error||'Error de conexión desconocido.');
+};
+seedSupabaseConfig = async function(){
+  const current=await getRecord('settings','supabase-config');
+  if(!OFFICIAL_SUPABASE_URL||!OFFICIAL_SUPABASE_PUBLISHABLE_KEY) throw new Error(`La configuración pública de Good King no cargó correctamente (config ${PUBLIC_CONFIG_VERSION}, build ${PUBLIC_CONFIG_BUILD}). Usa “Reparar actualización”.`);
+  const raw=current?.value||{}, url=normalizeSupabaseUrl(raw.url||''), key=normalizeSupabaseKey(raw.anonKey||raw.publishableKey||'');
+  let ref=''; try{ref=new URL(url).hostname.split('.')[0]||'';}catch(_){}
+  const repair=!current||!url||!key||LEGACY_WRONG_SUPABASE_URLS.has(url)||ref===OFFICIAL_SUPABASE_PROJECT_REF||raw.managed!==false;
+  const finalConfig=normalizeSupabaseConfig(repair?{...raw,url:OFFICIAL_SUPABASE_URL,anonKey:OFFICIAL_SUPABASE_PUBLISHABLE_KEY,enabled:true,managed:true,configVersion:PUBLIC_CONFIG_VERSION,configBuild:PUBLIC_CONFIG_BUILD,repairedAt:nowIso()}:raw);
+  setRuntimeSupabaseConfig(finalConfig);
+  if(!current||current.value?.url!==finalConfig.url||normalizeSupabaseKey(current.value?.anonKey)!==finalConfig.anonKey||current.value?.configBuild!==PUBLIC_CONFIG_BUILD) await putRecord('settings',{id:'supabase-config',value:{...finalConfig,updatedAt:nowIso()},updatedAt:nowIso()});
+  return finalConfig;
+};
+runConnectionDiagnostic = async function({showToast=true}={}){
+  const target=$('authDiagnosticResult'), steps=[];
+  const show=(cls='')=>{if(target){target.hidden=false;target.className=`connection-result diagnostic-steps ${cls}`.trim();target.textContent=steps.join('\n');}};
+  try{
+    const url=activeSupabaseUrl(), key=activeSupabaseKey();
+    steps.push(`1. Configuración: ${url&&key?'correcta':'incompleta'} · build ${PUBLIC_CONFIG_BUILD}`); show();
+    if(!url||!key) throw new Error('Falta URL o clave pública.');
+    if(!window.supabase?.createClient) throw new Error('El cliente local de Supabase no está disponible. Usa Reparar actualización.');
+    steps.push(`2. Cliente Supabase: ${window.supabase.__goodKingLocalClient?'local integrado':'disponible'}`); show();
+    steps.push(`3. Internet: ${navigator.onLine?'disponible':'sin conexión'}`); show();
+    if(!navigator.onLine) throw new Error('El dispositivo está sin conexión.');
+    const health=await checkSupabaseHealth(); steps.push(`4. Auth: disponible · HTTP ${health.status} · ${health.latencyMs} ms`); show();
+    const r=await fetchWithTimeout(`${url}/rest/v1/`,{headers:{apikey:key,Accept:'application/openapi+json'}},NETWORK_TIMEOUT_MS);
+    if(!r.ok) throw Object.assign(new Error(`API de datos HTTP ${r.status}`),{status:r.status});
+    steps.push('5. API de datos: disponible');
+    const {data:{session},error}=await createSupabaseClient().auth.getSession(); if(error) throw error;
+    steps.push(session?.user?.id?'6. Sesión: válida':'6. Sesión: todavía no iniciada'); show('success');
+    if(showToast) toast('Diagnóstico correcto: Supabase está accesible.');
+    const report={ok:true,checkedAt:nowIso(),url,projectRef:runtimeSupabaseConfig.projectRef,health,steps,client:'local-v091'};
+    await putRecord('appMeta',{id:'last-supabase-health',...report}); return report;
+  }catch(error){steps.push(`Problema: ${friendlyConnectionError(error)}`);show('error');if(showToast)toast('El diagnóstico encontró un problema. Revisa el detalle en pantalla.',4200);throw error;}
+};
+forceAppRefresh = async function(){
+  if(!confirm('Se reparará la actualización sin borrar ventas, caja, clientes ni IndexedDB. ¿Continuar?')) return;
+  try{if(db) await createAutoBackup('antes de reparar actualización').catch(()=>{}); const rs=await getGoodKingServiceWorkersV091(); await Promise.all(rs.map(r=>r.unregister())); const ks=await caches.keys(); await Promise.all(ks.filter(k=>k.startsWith('good-king-')).map(k=>caches.delete(k))); const next=new URL('./index.html',location.href);next.searchParams.set('actualizar',Date.now());location.replace(next.href);}catch(error){await logAppError('force-update-repair',error);toast(`No se pudo reparar la actualización: ${error.message||error}`,6200);}
+};
 
 window.addEventListener('error', event => logAppError('window-error', event.error || event.message, {filename:event.filename,line:event.lineno}).catch(()=>{}));
 window.addEventListener('unhandledrejection', event => logAppError('unhandled-rejection', event.reason).catch(()=>{}));
