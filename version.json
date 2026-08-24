@@ -1,5 +1,5 @@
 {
-  "version": "0.9.4",
-  "build": "2026-08-23-v094",
-  "notes": "Caja con monto recibido y cambio, tickets separados cocina/cliente, carrito responsive y flujo automático recetas-inventario-mercado."
+  "version": "0.9.5",
+  "build": "2026-08-24-v095",
+  "notes": "Persistencia de sesión tras actualización, carrito con prioridad al listado, controles compactos y tickets cocina/cliente corregidos para impresión."
 }
