@@ -1,11 +1,7 @@
 'use strict';
-/* Good King V0.9.5 · continuidad de sesión y ergonomía operativa */
-const V095_VERSION='0.9.5';
+/* Good King V0.9.6 · continuidad de sesión, ergonomía, costos e impresión */
+const V095_VERSION='0.9.6';
 
-/* Una actualización del App Shell nunca debe expulsar a un dispositivo ya validado.
-   Si Supabase tarda en restaurar su sesión, usamos el contexto local verificado y
-   reintentamos la sesión remota en segundo plano. Cerrar sesión explícitamente sigue
-   deshabilitando este acceso. */
 bootstrapAuthentication=async function(){
   showAuthGate('Verificando sesión y permisos…');setAuthPanel('authLoadingPanel');await seedSupabaseConfig();
   const cached=await getCachedAuthContext();
@@ -21,40 +17,35 @@ bootstrapAuthentication=async function(){
         if(fallback){authSession=null;authContext={...fallback,offline:true};updateAuthenticatedUI();hideAuthGate();}
       }
       if(session&&['SIGNED_IN','TOKEN_REFRESHED','INITIAL_SESSION'].includes(event)){
-        try{await completeAuthentication(session)}catch(error){await logAppError('auth-state-v095',error)}
+        try{await completeAuthentication(session)}catch(error){await logAppError('auth-state-v096',error)}
       }
     });
     authSubscription=sub.subscription;
-    const {data:{session},error}=await client.auth.getSession();
-    if(error)throw error;
+    const {data:{session},error}=await client.auth.getSession();if(error)throw error;
     if(session){await completeAuthentication(session);return;}
-    if(cached&&!disabled){authSession=null;authContext={...cached,offline:true};updateAuthenticatedUI();hideAuthGate();toast('Acceso local verificado. Reconectando la nube…',3200);setTimeout(async()=>{try{const s=await ensureAuthSession();if(s)await completeAuthentication(s)}catch(e){await logAppError('auth-background-v095',e)}},1200);return;}
-    $('offlineAccessBtn').hidden=!cached||disabled;
-    $('loginEmail').value=(await getRecord('settings','last-login-email'))?.value||ADMIN_EMAIL;
-    showAuthGate('Ingresa con uno de los usuarios autorizados.');setAuthPanel('loginForm');
-  }catch(error){
-    await logAppError('auth-bootstrap-v095',error);
-    if(cached&&!disabled){authSession=null;authContext={...cached,offline:true};updateAuthenticatedUI();hideAuthGate();toast('Sin conexión con la nube. GOOD KING continúa en modo local.',4200);return;}
-    $('loginResult').textContent=error.message||'No se pudo verificar la sesión.';$('loginResult').className='connection-result error';setAuthPanel('loginForm');
-  }
+    if(cached&&!disabled){authSession=null;authContext={...cached,offline:true};updateAuthenticatedUI();hideAuthGate();setTimeout(async()=>{try{const s=await ensureAuthSession();if(s)await completeAuthentication(s)}catch(e){await logAppError('auth-background-v096',e)}},1200);return;}
+    $('offlineAccessBtn').hidden=!cached||disabled;$('loginEmail').value=(await getRecord('settings','last-login-email'))?.value||ADMIN_EMAIL;showAuthGate('Ingresa con uno de los usuarios autorizados.');setAuthPanel('loginForm');
+  }catch(error){await logAppError('auth-bootstrap-v096',error);if(cached&&!disabled){authSession=null;authContext={...cached,offline:true};updateAuthenticatedUI();hideAuthGate();return;}$('loginResult').textContent=error.message||'No se pudo verificar la sesión.';$('loginResult').className='connection-result error';setAuthPanel('loginForm');}
 };
 
-/* Mantener el listado del pedido como zona principal. */
-function tuneCartV095(){
-  const panel=$('cartPanel'),items=$('cartItems'),form=panel?.querySelector('.order-form');if(!panel||!items||!form)return;
-  panel.classList.add('cart-v095');
-  const note=form.querySelector('.text-note');if(note){note.classList.add('compact-note-v095');const input=note.querySelector('input');if(input)input.placeholder='Observación adicional (opcional)';}
-}
+function tuneCartV095(){const panel=$('cartPanel'),items=$('cartItems'),form=panel?.querySelector('.order-form');if(!panel||!items||!form)return;panel.classList.add('cart-v095');const note=form.querySelector('.text-note');if(note){note.classList.add('compact-note-v095');const input=note.querySelector('input');if(input)input.placeholder='Observación adicional (opcional)';}}
+const showPrintV094=showPrint;showPrint=function(sale,title='Vista previa'){showPrintV094(sale,title);const stack=document.querySelector('.ticket-stack-v094');if(stack)stack.classList.add('print-two-tickets-v095');};
 
-/* Vista de impresión compacta: dos comprobantes, uno por hoja/ticket, sin páginas vacías. */
-const showPrintV094=showPrint;
-showPrint=function(sale,title='Vista previa'){
-  showPrintV094(sale,title);
-  const stack=document.querySelector('.ticket-stack-v094');if(stack)stack.classList.add('print-two-tickets-v095');
+function purchaseUnitCostV096(p){const converted=Number(p?.convertedQuantity||0);return converted>0?Number(p.total||0)/converted:0}
+function lastPurchaseForIngredientV096(id,purchases){return purchases.filter(p=>p.ingredientId===id).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0]||null}
+function recipeHumanQtyV096(q,unit){const n=Number(q||0);if(unit==='kg'&&n>0&&n<1)return `${inventoryNumber(n*1000)} g`;if(unit==='litro'&&n>0&&n<1)return `${inventoryNumber(n*1000)} ml`;return `${inventoryNumber(n)} ${unit||''}`.trim()}
+
+renderInventoryModule=async function(){
+  const rows=await loadInventoryLocal(),purchases=(await getAllRecords('purchasesLocal')).filter(p=>p.status!=='cancelled').sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))),low=rows.filter(x=>Number(x.theoreticalQuantity||0)<=Number(x.minimumStock||0));
+  const stockValue=rows.reduce((s,x)=>s+Number(x.theoreticalQuantity||0)*Number(x.averageCost||0),0),totalPurchased=purchases.reduce((s,p)=>s+Number(p.total||0),0);
+  const cards=rows.map(x=>{const q=Number(x.theoreticalQuantity||0),min=Number(x.minimumStock||0),avg=Number(x.averageCost||0),value=q*avg,last=lastPurchaseForIngredientV096(x.id,purchases),lastUnit=last?purchaseUnitCostV096(last):0,isLow=q<=min;return `<article class="cost-stock-card-v096 ${isLow?'low':''}"><div class="cost-stock-title-v096"><div><b>${escapeHTML(x.name)}</b><small>${escapeHTML(x.purchaseUnit||x.baseUnit)} → ${inventoryNumber(x.conversionFactor||1)} ${escapeHTML(x.baseUnit)}</small></div><span class="cost-stock-state-v096 ${isLow?'danger':'ok'}">${isLow?'Reponer':'Normal'}</span></div><div class="cost-stock-grid-v096"><div><span>Stock teórico</span><strong>${inventoryNumber(q)} ${escapeHTML(x.baseUnit)}</strong></div><div><span>Costo promedio</span><strong>${money(avg)} / ${escapeHTML(x.baseUnit)}</strong></div><div><span>Valor en stock</span><strong>${money(value)}</strong></div><div><span>Mínimo</span><strong>${inventoryNumber(min)} ${escapeHTML(x.baseUnit)}</strong></div></div>${last?`<div class="last-purchase-v096"><span>Última compra</span><b>${inventoryNumber(last.quantity||0)} ${escapeHTML(last.purchaseUnit||x.purchaseUnit||'')} · ${money(last.total)}</b><small>${money(lastUnit)} por ${escapeHTML(x.baseUnit)}${last.supplier?` · ${escapeHTML(last.supplier)}`:''}</small></div>`:'<div class="last-purchase-v096 empty"><span>Sin compras registradas todavía</span></div>'}<div class="inventory-actions"><button class="button-light edit-ingredient" data-id="${x.id}">Editar</button><button class="secondary-action adjust-inventory" data-id="${x.id}">Ajustar stock</button><button class="primary-action buy-ingredient-v096" data-id="${x.id}">Registrar compra</button></div></article>`}).join('');
+  const recent=purchases.slice(0,10).map(p=>`<article class="macro-purchase-row-v096"><div><b>${escapeHTML(p.ingredientName||p.description||'Insumo')}</b><small>${new Date(p.createdAt).toLocaleString('es-BO')} · ${escapeHTML(p.supplier||'Sin proveedor')}</small></div><div><span>Compra macro</span><strong>${inventoryNumber(p.quantity||0)} ${escapeHTML(p.purchaseUnit||'')}</strong><small>Ingresó ${inventoryNumber(p.convertedQuantity||0)} ${escapeHTML(p.baseUnit||'')}</small></div><div><span>Total pagado</span><strong>${money(p.total)}</strong><small>${money(purchaseUnitCostV096(p))} / ${escapeHTML(p.baseUnit||'unidad')}</small></div></article>`).join('');
+  return `<div class="inventory-cost-hero-v096"><div><span>Capital en insumos</span><strong>${money(stockValue)}</strong><small>Stock × costo promedio</small></div><div><span>Compras acumuladas</span><strong>${money(totalPurchased)}</strong><small>${purchases.length} compra(s)</small></div><div><span>Por reponer</span><strong>${low.length}</strong><small>Según stock mínimo</small></div><button id="newIngredientBtn" class="primary-action">＋ Nuevo insumo</button></div><div class="inventory-cost-help-v096"><b>Del mercado al costo del plato</b><span>Registra una compra grande, por ejemplo 10 kg de carne y su precio total. GOOD KING obtiene el costo por kg; luego la receta usa gramos o unidades para calcular automáticamente el costo de cada hamburguesa o plato.</span></div><div class="inventory-toolbar"><button id="quickPurchaseBtn" class="secondary-action">🛍 Registrar compra</button><button id="seedIngredientsBtn" class="button-light">Cargar insumos iniciales</button></div><section class="cost-stock-list-v096">${cards||'<div class="empty-state">Todavía no hay insumos. Crea el primero para empezar a calcular costos.</div>'}</section><section class="module-subsection"><div class="subsection-title"><div><p class="eyebrow">Compras macro</p><h2>Historial de costos</h2></div><small>Cada compra actualiza el costo promedio.</small></div><div class="macro-purchases-v096">${recent||'<div class="empty-state compact">Todavía no existen compras registradas.</div>'}</div></section>`;
 };
 
-window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{
-  document.title='Good King V0.9.5';
-  const side=document.querySelector('.side-footer span');if(side)side.textContent='V0.9.5 · Sesión persistente, carrito y tickets optimizados';
-  tuneCartV095();
-},140));
+const renderModuleV096Base=renderModule;renderModule=async function(key){const out=await renderModuleV096Base(key);if(key==='inventory'){document.querySelectorAll('.buy-ingredient-v096').forEach(btn=>btn.onclick=async()=>{const item=(await loadInventoryLocal()).find(x=>x.id===btn.dataset.id);if(!item)return;await openPurchaseDialog(item)});}return out;};
+
+recipeLineHTML=function(line,index,ingredients){const ingredient=ingredientById(line.ingredientId,ingredients),unit=ingredient?.baseUnit||'',cost=Number(line.quantity||0)*Number(ingredient?.averageCost||0);return `<div class="recipe-line recipe-line-v096" data-index="${index}"><label>Insumo<select class="recipe-ingredient">${ingredients.map(item=>`<option value="${item.id}" ${item.id===line.ingredientId?'selected':''}>${escapeHTML(item.name)}</option>`).join('')}</select></label><label>Cantidad usada<input class="recipe-quantity" type="number" min="0.0001" step="0.0001" value="${numberInput(line.quantity,1)}" required /><small>${escapeHTML(unit)} · equivale a ${escapeHTML(recipeHumanQtyV096(line.quantity,unit))}</small></label><div class="recipe-line-cost"><span>Costo</span><b>${money(cost)}</b><small>${money(Number(ingredient?.averageCost||0))} / ${escapeHTML(unit||'unidad')}</small></div><button type="button" class="remove-recipe-line" aria-label="Quitar insumo">×</button></div>`;};
+updateRecipePreview=function(items=recipeDraftItems,ingredients=[]){const preview=$('recipeCostPreview');if(!preview)return;const recipe={yieldQuantity:numberInput($('recipeYield')?.value,1),indirectCost:numberInput($('recipeIndirectCost')?.value)},product=localProductById($('recipeProduct')?.value),cost=recipeUnitCost(recipe,items,ingredients),price=numberInput(product?.price),margin=price-cost.unit,percentage=price>0?margin/price*100:0;preview.innerHTML=`<div><span>Ingredientes</span><b>${money(cost.direct)}</b></div><div><span>Indirectos</span><b>${money(cost.indirect)}</b></div><div class="highlight-v096"><span>Costo por plato</span><b>${money(cost.unit)}</b></div><div><span>Precio de venta</span><b>${money(price)}</b></div><div><span>Ganancia bruta</span><b class="${margin<0?'negative':''}">${money(margin)}</b><small>${inventoryNumber(percentage)}%</small></div>`;};
+
+window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{document.title='Good King V0.9.6';const side=document.querySelector('.side-footer span');if(side)side.textContent='V0.9.6 · Costos de insumos, recetas y tickets 3×5';tuneCartV095();},140));
