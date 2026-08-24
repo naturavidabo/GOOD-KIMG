@@ -1,5 +1,5 @@
 {
-  "version": "0.9.5",
-  "build": "2026-08-24-v095",
-  "notes": "Persistencia de sesión tras actualización, carrito con prioridad al listado, controles compactos y tickets cocina/cliente corregidos para impresión."
+  "version": "0.9.6",
+  "build": "2026-08-24-v096",
+  "notes": "Impresión adaptada a ficha 3x5, inventario con compras macro, costo promedio, valor de stock, costo por receta y margen por plato."
 }
